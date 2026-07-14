@@ -18,12 +18,17 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Один корневой .env используется и Django, и Docker Compose. Секреты не
+# дублируются по приложениям и не должны попадать в Git.
 load_dotenv(BASE_DIR.parent / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+# Для чувствительных параметров намеренно нет значения по умолчанию: при
+# неправильном окружении приложение должно остановиться, а не запуститься с
+# незаметно подставленным production-секретом или другой базой.
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 DEBUG = os.getenv('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes', 'on'}
@@ -48,6 +53,7 @@ INSTALLED_APPS = [
     'rest_framework',
 
     'users',
+    'complexes',
     'providers',
     'tickets',
 ]

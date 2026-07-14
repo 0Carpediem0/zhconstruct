@@ -1,3 +1,76 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Ticket, TicketStatusHistory
+
+
+class TicketStatusHistoryInline(admin.TabularInline):
+    """История доступна для аудита, но не редактируется вручную."""
+
+    model = TicketStatusHistory
+    extra = 0
+    can_delete = False
+    readonly_fields = (
+        'from_status',
+        'to_status',
+        'changed_by',
+        'comment',
+        'created_at',
+    )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Ticket)
+class TicketAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'title',
+        'residential_complex',
+        'category',
+        'provider',
+        'assignee',
+        'status',
+        'priority',
+        'created_at',
+    )
+    list_filter = ('status', 'priority', 'source', 'residential_complex')
+    search_fields = (
+        'title',
+        'description',
+        'external_id',
+        'customer__username',
+        'provider__name',
+    )
+    autocomplete_fields = (
+        'residential_complex',
+        'customer',
+        'category',
+        'provider',
+        'assignee',
+    )
+    # Статус нельзя редактировать как обычное поле: иначе будет потеряна
+    # история. Позже смена статуса появится как отдельное действие/API.
+    readonly_fields = ('status', 'created_at', 'updated_at')
+    inlines = (TicketStatusHistoryInline,)
+
+
+@admin.register(TicketStatusHistory)
+class TicketStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ('ticket', 'from_status', 'to_status', 'changed_by', 'created_at')
+    list_filter = ('from_status', 'to_status')
+    search_fields = ('ticket__title', 'comment', 'changed_by__username')
+    readonly_fields = (
+        'ticket',
+        'from_status',
+        'to_status',
+        'changed_by',
+        'comment',
+        'created_at',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
