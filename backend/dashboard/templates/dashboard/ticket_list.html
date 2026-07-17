@@ -1,0 +1,63 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Заявки — ЖКонстракт{% endblock %}
+{% block eyebrow %}Рабочая очередь{% endblock %}
+{% block page_title %}Заявки{% endblock %}
+{% block page_actions %}
+    {% if can_register_ticket %}
+        <a class="button button-primary" href="{% url 'dashboard:ticket-create' %}">＋ Зарегистрировать заявку</a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <form class="filter-panel" method="get">
+        <div class="filter-search">
+            <label for="filter-q">Поиск</label>
+            <input id="filter-q" type="search" name="q" value="{{ request.GET.q }}"
+                   placeholder="Номер, название, житель или поставщик">
+        </div>
+        <div>
+            <label for="filter-status">Статус</label>
+            <select id="filter-status" name="status">
+                <option value="">Все статусы</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="filter-priority">Приоритет</label>
+            <select id="filter-priority" name="priority">
+                <option value="">Все</option>
+                {% for value, label in priorities %}
+                    <option value="{{ value }}" {% if request.GET.priority == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="filter-complex">Жилой комплекс</label>
+            <select id="filter-complex" name="residential_complex">
+                <option value="">Все ЖК</option>
+                {% for complex in complexes %}
+                    <option value="{{ complex.pk }}" {% if request.GET.residential_complex == complex.pk|stringformat:'s' %}selected{% endif %}>{{ complex.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="button button-secondary" type="submit">Применить</button>
+        <a class="filter-reset" href="{% url 'dashboard:ticket-list' %}">Сбросить</a>
+    </form>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div><span class="section-kicker">Найдено</span><h2>{{ page.paginator.count }} заявок</h2></div>
+        </div>
+        {% include 'dashboard/_ticket_table.html' with tickets=page.object_list %}
+        {% if page.paginator.num_pages > 1 %}
+            <nav class="pagination">
+                {% if page.has_previous %}<a href="?{{ query_string }}&page={{ page.previous_page_number }}">← Назад</a>{% endif %}
+                <span>Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>
+                {% if page.has_next %}<a href="?{{ query_string }}&page={{ page.next_page_number }}">Вперёд →</a>{% endif %}
+            </nav>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Вход — ЖКонстракт</title>
+    <link rel="stylesheet" href="{% static 'dashboard/app.css' %}">
+</head>
+<body class="login-body">
+    <main class="login-shell">
+        <section class="login-showcase">
+            <div class="login-brand">
+                <span class="brand-mark brand-mark-light">ЖК</span>
+                <strong>ЖКонстракт</strong>
+            </div>
+            <div class="showcase-copy">
+                <span class="showcase-kicker">Единое окно обработки обращений</span>
+                <h1>Очередь заявок.<br>Поставщики. Контроль.</h1>
+                <p>Служебное рабочее пространство ТСЖ, управляющих организаций и исполнителей.</p>
+            </div>
+            <div class="showcase-stats">
+                <div><strong>01</strong><span>Единый процесс</span></div>
+                <div><strong>24/7</strong><span>История статусов</span></div>
+                <div><strong>100%</strong><span>Прозрачность</span></div>
+            </div>
+        </section>
+        <section class="login-panel">
+            <div class="login-card">
+                <span class="login-icon">→</span>
+                <h2>Добро пожаловать</h2>
+                <p>Войдите под учётной записью сотрудника ЖК или поставщика.</p>
+                {% if form.errors %}
+                    <div class="form-alert">Не удалось войти. Проверьте данные и наличие служебного доступа.</div>
+                {% endif %}
+                <form method="post" class="login-form">
+                    {% csrf_token %}
+                    <label for="id_username">Логин</label>
+                    <input id="id_username" name="username" type="text" autocomplete="username"
+                           placeholder="Введите логин" required autofocus>
+                    <label for="id_password">Пароль</label>
+                    <input id="id_password" name="password" type="password"
+                           autocomplete="current-password" placeholder="Введите пароль" required>
+                    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+                    <button class="button button-primary button-wide" type="submit">Войти в систему</button>
+                </form>
+                <p class="login-hint">Кабинет не предназначен для жителей. Доступ выдаёт администратор ЖК или организации.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

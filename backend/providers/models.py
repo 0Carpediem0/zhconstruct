@@ -93,8 +93,8 @@ class ProviderMembership(models.Model):
     """
 
     class Role(models.TextChoices):
-        MANAGER = 'manager', 'Manager'
-        EMPLOYEE = 'employee', 'Employee'
+        MANAGER = 'manager', 'Руководитель поставщика'
+        EMPLOYEE = 'employee', 'Исполнитель'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

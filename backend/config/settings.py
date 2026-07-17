@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'complexes',
     'providers',
     'tickets',
+    'dashboard',
 ]
 
 MIDDLEWARE = [
@@ -125,9 +126,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = os.getenv('DJANGO_TIME_ZONE', 'Asia/Yekaterinburg')
 
 USE_I18N = True
 
@@ -145,3 +146,18 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "users.User"
+
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# На первом этапе браузерная таблица и DRF Browsable API используют обычную
+# Django-сессию. Отдельные ключи для ИИ и 1С появятся в интеграционном слое.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'tickets.permissions.IsInternalUser',
+    ),
+}

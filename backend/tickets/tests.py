@@ -5,8 +5,8 @@ from django.test import TestCase
 
 from complexes.models import (
     ResidentialComplex,
-    ResidentialComplexMembership,
     ResidentialComplexProvider,
+    ServiceRoutingRule,
 )
 from providers.models import (
     Provider,
@@ -15,13 +15,13 @@ from providers.models import (
     ServiceCategory,
 )
 
-from .models import Ticket
+from .models import Applicant, Ticket
+from .services import apply_initial_routing
 
 
 class TicketModelTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.customer = user_model.objects.create_user(username='resident')
         self.employee = user_model.objects.create_user(username='employee')
         self.dispatcher = user_model.objects.create_user(username='dispatcher')
         self.outsider = user_model.objects.create_user(username='outsider')
@@ -31,10 +31,19 @@ class TicketModelTests(TestCase):
             slug='sunny',
             address='Example street, 1',
         )
-        ResidentialComplexMembership.objects.create(
-            user=self.customer,
+        self.applicant = Applicant.objects.create(
             residential_complex=self.residential_complex,
-            role=ResidentialComplexMembership.Role.RESIDENT,
+            full_name='Anna Resident',
+            apartment='42',
+        )
+        self.other_complex = ResidentialComplex.objects.create(
+            name='Northern',
+            slug='northern-domain',
+            address='Another street, 2',
+        )
+        self.outside_applicant = Applicant.objects.create(
+            residential_complex=self.other_complex,
+            full_name='Outside Applicant',
         )
 
         self.category = ServiceCategory.objects.create(
@@ -77,7 +86,7 @@ class TicketModelTests(TestCase):
     def make_ticket(self, **overrides):
         data = {
             'residential_complex': self.residential_complex,
-            'customer': self.customer,
+            'applicant': self.applicant,
             'title': 'Clean the entrance',
             'description': 'Wet cleaning is required.',
             'category': self.category,
@@ -93,13 +102,13 @@ class TicketModelTests(TestCase):
 
         ticket.full_clean()
 
-    def test_customer_must_be_resident_of_ticket_complex(self):
-        ticket = self.make_ticket(customer=self.outsider)
+    def test_applicant_must_belong_to_ticket_complex(self):
+        ticket = self.make_ticket(applicant=self.outside_applicant)
 
         with self.assertRaises(ValidationError) as error:
             ticket.full_clean()
 
-        self.assertIn('customer', error.exception.message_dict)
+        self.assertIn('applicant', error.exception.message_dict)
 
     def test_provider_must_be_connected_to_ticket_complex(self):
         ticket = self.make_ticket(
@@ -205,7 +214,7 @@ class TicketModelTests(TestCase):
     def test_external_id_prevents_duplicate_import(self):
         ticket_data = {
             'residential_complex': self.residential_complex,
-            'customer': self.customer,
+            'applicant': self.applicant,
             'title': 'Imported ticket',
             'description': 'Imported from another system.',
             'category': self.category,
@@ -231,3 +240,50 @@ class TicketModelTests(TestCase):
         second_ticket.save()
 
         self.assertNotEqual(first_ticket.pk, second_ticket.pk)
+
+    def test_ticket_stays_in_tsj_queue_without_direct_rule(self):
+        ticket = self.make_ticket()
+        ticket.full_clean()
+        ticket.save()
+
+        apply_initial_routing(ticket, changed_by=self.dispatcher)
+
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, Ticket.Status.NEW)
+        self.assertIsNone(ticket.provider)
+        self.assertFalse(ticket.status_history.exists())
+
+    def test_direct_rule_assigns_provider_without_tsj_approval(self):
+        rule = ServiceRoutingRule(
+            residential_complex=self.residential_complex,
+            category=self.category,
+            mode=ServiceRoutingRule.Mode.DIRECT,
+            provider=self.provider,
+        )
+        rule.full_clean()
+        rule.save()
+        ticket = self.make_ticket()
+        ticket.full_clean()
+        ticket.save()
+
+        apply_initial_routing(ticket)
+
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.provider, self.provider)
+        self.assertEqual(ticket.status, Ticket.Status.ASSIGNED)
+        history = ticket.status_history.get()
+        self.assertIn('автоматически', history.comment)
+        self.assertIsNone(history.changed_by)
+
+    def test_direct_rule_rejects_provider_without_matching_contract(self):
+        rule = ServiceRoutingRule(
+            residential_complex=self.residential_complex,
+            category=self.category,
+            mode=ServiceRoutingRule.Mode.DIRECT,
+            provider=self.other_provider,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            rule.full_clean()
+
+        self.assertIn('provider', error.exception.message_dict)

@@ -75,7 +75,7 @@ class ResidentialComplexModelTests(TestCase):
         ResidentialComplexMembership.objects.create(
             user=user,
             residential_complex=another_complex,
-            role=ResidentialComplexMembership.Role.RESIDENT,
+            role=ResidentialComplexMembership.Role.MANAGER,
         )
 
         memberships = user.residential_complex_memberships.order_by('role')
@@ -84,21 +84,21 @@ class ResidentialComplexModelTests(TestCase):
             set(memberships.values_list('role', flat=True)),
             {
                 ResidentialComplexMembership.Role.DISPATCHER,
-                ResidentialComplexMembership.Role.RESIDENT,
+                ResidentialComplexMembership.Role.MANAGER,
             },
         )
 
     def test_complex_membership_must_be_unique(self):
-        user = get_user_model().objects.create_user(username='resident')
+        user = get_user_model().objects.create_user(username='dispatcher-unique')
         ResidentialComplexMembership.objects.create(
             user=user,
             residential_complex=self.residential_complex,
-            role=ResidentialComplexMembership.Role.RESIDENT,
+            role=ResidentialComplexMembership.Role.DISPATCHER,
         )
 
         with self.assertRaises(IntegrityError), transaction.atomic():
             ResidentialComplexMembership.objects.create(
                 user=user,
                 residential_complex=self.residential_complex,
-                role=ResidentialComplexMembership.Role.DISPATCHER,
+                role=ResidentialComplexMembership.Role.MANAGER,
             )

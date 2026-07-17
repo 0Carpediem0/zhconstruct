@@ -1,0 +1,73 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Справочники — ЖКонстракт{% endblock %}
+{% block eyebrow %}Структура системы{% endblock %}
+{% block page_title %}Справочники{% endblock %}
+
+{% block content %}
+    <div class="directory-section">
+        <div class="section-heading"><div><span class="section-kicker">Внедренческие настройки</span><h2>Маршрутизация услуг</h2></div></div>
+        <div class="directory-grid">
+            {% for complex in complexes %}
+                <article class="directory-card">
+                    <span class="directory-icon complex-icon">→</span>
+                    <div><h3>{{ complex.name }}</h3><p>Как новые заявки попадают поставщикам</p></div>
+                    <div class="directory-tags">
+                        {% if complex.routing_rules.all %}
+                            {% for rule in complex.routing_rules.all %}
+                                {% if rule.is_active %}
+                                    <span>{{ rule.category.name }}: {% if rule.mode == 'direct' %}сразу в {{ rule.provider.name }}{% else %}через диспетчера{% endif %}</span>
+                                {% endif %}
+                            {% endfor %}
+                            <span class="muted-tag">Остальные категории — через диспетчера ТСЖ</span>
+                        {% else %}
+                            <span class="muted-tag">Все категории — через диспетчера</span>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="directory-section">
+        <div class="section-heading"><div><span class="section-kicker">Объекты</span><h2>Жилые комплексы</h2></div><span class="count-pill">{{ complexes|length }}</span></div>
+        <div class="directory-grid">
+            {% for complex in complexes %}
+                <article class="directory-card">
+                    <span class="directory-icon complex-icon">ЖК</span>
+                    <div><h3>{{ complex.name }}</h3><p>{{ complex.address }}</p></div>
+                    <div class="directory-tags">
+                        {% for link in complex.provider_links.all %}<span>{{ link.provider.name }}</span>{% empty %}<span class="muted-tag">Нет поставщиков</span>{% endfor %}
+                    </div>
+                </article>
+            {% empty %}<div class="empty-state"><p>Нет доступных жилых комплексов.</p></div>{% endfor %}
+        </div>
+    </div>
+
+    <div class="directory-section">
+        <div class="section-heading"><div><span class="section-kicker">Организации</span><h2>Поставщики</h2></div><span class="count-pill">{{ providers|length }}</span></div>
+        <div class="directory-grid">
+            {% for provider in providers %}
+                <article class="directory-card">
+                    <span class="directory-icon provider-icon">П</span>
+                    <div>
+                        <h3>{{ provider.name }}</h3>
+                        <p>{{ provider.email|default:'Контакт не указан' }}{% if provider.phone %} · {{ provider.phone }}{% endif %}</p>
+                    </div>
+                    <div class="directory-tags">
+                        {% for category in provider.service_categories.all %}<span>{{ category.name }}</span>{% empty %}<span class="muted-tag">Услуги не настроены</span>{% endfor %}
+                    </div>
+                </article>
+            {% empty %}<div class="empty-state"><p>Нет доступных поставщиков.</p></div>{% endfor %}
+        </div>
+    </div>
+
+    <div class="directory-section">
+        <div class="section-heading"><div><span class="section-kicker">Классификация</span><h2>Категории услуг</h2></div><span class="count-pill">{{ categories|length }}</span></div>
+        <div class="category-list">
+            {% for category in categories %}
+                <article><span>◇</span><div><h3>{{ category.name }}</h3><p>{{ category.description|default:'Описание пока не добавлено.' }}</p></div></article>
+            {% empty %}<div class="empty-state"><p>Категории ещё не созданы.</p></div>{% endfor %}
+        </div>
+    </div>
+{% endblock %}

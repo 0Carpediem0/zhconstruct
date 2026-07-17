@@ -4,6 +4,7 @@ from .models import (
     ResidentialComplex,
     ResidentialComplexMembership,
     ResidentialComplexProvider,
+    ServiceRoutingRule,
 )
 
 
@@ -55,3 +56,21 @@ class ResidentialComplexMembershipAdmin(admin.ModelAdmin):
         'residential_complex__name',
     )
     autocomplete_fields = ('user', 'residential_complex')
+
+
+@admin.register(ServiceRoutingRule)
+class ServiceRoutingRuleAdmin(admin.ModelAdmin):
+    list_display = (
+        'residential_complex',
+        'category',
+        'mode',
+        'provider',
+        'is_active',
+    )
+    list_filter = ('mode', 'is_active', 'residential_complex')
+    search_fields = (
+        'residential_complex__name',
+        'category__name',
+        'provider__name',
+    )
+    autocomplete_fields = ('residential_complex', 'category', 'provider')

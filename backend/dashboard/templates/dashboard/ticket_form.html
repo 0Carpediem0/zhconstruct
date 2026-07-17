@@ -1,0 +1,41 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Регистрация заявки — ЖКонстракт{% endblock %}
+{% block eyebrow %}Ручной канал приёма{% endblock %}
+{% block page_title %}Регистрация заявки{% endblock %}
+{% block page_actions %}<a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">Отмена</a>{% endblock %}
+
+{% block content %}
+    <div class="form-layout">
+        <form class="panel form-card" method="post">
+            {% csrf_token %}
+            <div class="panel-header">
+                <div><span class="section-kicker">Данные обращения</span><h2>Зарегистрировать в очереди</h2></div>
+            </div>
+            {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+            {% for field in form %}
+                {% if not field.is_hidden %}
+                    <div class="form-group {% if field.errors %}has-error{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+                    </div>
+                {% else %}{{ field }}{% endif %}
+            {% endfor %}
+            <div class="form-actions">
+                <button class="button button-primary" type="submit">Зарегистрировать заявку</button>
+                <a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">Вернуться к списку</a>
+            </div>
+        </form>
+        <aside class="form-aside">
+            <span class="aside-number">01</span>
+            <h3>Когда использовать?</h3>
+            <ol>
+                <li>Житель сообщил о проблеме по телефону или лично.</li>
+                <li>Заявка не поступила из внешнего канала автоматически.</li>
+                <li>После сохранения применится правило маршрутизации выбранной категории.</li>
+                <li>Прямая категория уйдёт поставщику, остальные — в очередь ТСЖ.</li>
+            </ol>
+        </aside>
+    </div>
+{% endblock %}

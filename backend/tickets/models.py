@@ -3,6 +3,38 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 
+class Applicant(models.Model):
+    """Заявитель хранится отдельно от сотрудников, имеющих доступ в систему."""
+
+    residential_complex = models.ForeignKey(
+        'complexes.ResidentialComplex',
+        on_delete=models.CASCADE,
+        related_name='applicants',
+    )
+    full_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=32, blank=True)
+    email = models.EmailField(blank=True)
+    apartment = models.CharField(max_length=32, blank=True)
+    external_id = models.CharField(max_length=255, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('full_name', 'apartment')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'external_id'),
+                condition=models.Q(external_id__isnull=False),
+                name='unique_applicant_external_id_per_complex',
+            ),
+        ]
+
+    def __str__(self):
+        details = f', кв. {self.apartment}' if self.apartment else ''
+        return f'{self.full_name}{details}'
+
+
 class Ticket(models.Model):
     """Заявка жителя — центральная бизнес-сущность платформы.
 
@@ -12,25 +44,25 @@ class Ticket(models.Model):
     """
 
     class Status(models.TextChoices):
-        NEW = 'new', 'New'
-        AWAITING_ASSIGNMENT = 'awaiting_assignment', 'Awaiting assignment'
-        ASSIGNED = 'assigned', 'Assigned to provider'
-        ACCEPTED = 'accepted', 'Accepted by provider'
-        IN_PROGRESS = 'in_progress', 'In progress'
-        COMPLETED = 'completed', 'Completed'
-        CANCELLED = 'cancelled', 'Cancelled'
+        NEW = 'new', 'Новая'
+        AWAITING_ASSIGNMENT = 'awaiting_assignment', 'Ожидает назначения'
+        ASSIGNED = 'assigned', 'Назначена поставщику'
+        ACCEPTED = 'accepted', 'Принята поставщиком'
+        IN_PROGRESS = 'in_progress', 'В работе'
+        COMPLETED = 'completed', 'Выполнена'
+        CANCELLED = 'cancelled', 'Отменена'
 
     class Priority(models.TextChoices):
-        LOW = 'low', 'Low'
-        NORMAL = 'normal', 'Normal'
-        HIGH = 'high', 'High'
-        URGENT = 'urgent', 'Urgent'
+        LOW = 'low', 'Низкий'
+        NORMAL = 'normal', 'Обычный'
+        HIGH = 'high', 'Высокий'
+        URGENT = 'urgent', 'Срочный'
 
     class Source(models.TextChoices):
-        DIRECT = 'direct', 'Direct from resident'
-        AI = 'ai', 'AI processed'
-        IMPORT = 'import', 'Imported'
-        INTEGRATION = 'integration', 'External integration'
+        DIRECT = 'direct', 'От жителя'
+        AI = 'ai', 'Обработана ИИ'
+        IMPORT = 'import', 'Импортирована'
+        INTEGRATION = 'integration', 'Внешняя интеграция'
 
     # Карта является единственным местом, где описан допустимый жизненный
     # цикл. API, фоновые задачи и интеграции должны использовать
@@ -54,10 +86,10 @@ class Ticket(models.Model):
         on_delete=models.PROTECT,
         related_name='tickets',
     )
-    customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    applicant = models.ForeignKey(
+        Applicant,
         on_delete=models.PROTECT,
-        related_name='created_tickets',
+        related_name='tickets',
     )
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -125,19 +157,12 @@ class Ticket(models.Model):
         super().clean()
         errors = {}
 
-        if self.customer_id and self.residential_complex_id:
-            from complexes.models import ResidentialComplexMembership
-
-            customer_belongs_to_complex = (
-                ResidentialComplexMembership.objects.filter(
-                    user_id=self.customer_id,
-                    residential_complex_id=self.residential_complex_id,
-                    role=ResidentialComplexMembership.Role.RESIDENT,
-                    is_active=True,
-                ).exists()
-            )
-            if not customer_belongs_to_complex:
-                errors['customer'] = 'Customer is not an active resident of this complex.'
+        if (
+            self.applicant_id
+            and self.residential_complex_id
+            and self.applicant.residential_complex_id != self.residential_complex_id
+        ):
+            errors['applicant'] = 'Заявитель относится к другому жилому комплексу.'
 
         provider_link = None
         if self.provider_id and self.residential_complex_id:

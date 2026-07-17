@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Ticket, TicketStatusHistory
+from .models import Applicant, Ticket, TicketStatusHistory
+
+
+@admin.register(Applicant)
+class ApplicantAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'residential_complex', 'apartment', 'phone', 'is_active')
+    list_filter = ('residential_complex', 'is_active')
+    search_fields = ('full_name', 'phone', 'email', 'apartment', 'external_id')
+    autocomplete_fields = ('residential_complex',)
 
 
 class TicketStatusHistoryInline(admin.TabularInline):
@@ -39,12 +47,13 @@ class TicketAdmin(admin.ModelAdmin):
         'title',
         'description',
         'external_id',
-        'customer__username',
+        'applicant__full_name',
+        'applicant__phone',
         'provider__name',
     )
     autocomplete_fields = (
         'residential_complex',
-        'customer',
+        'applicant',
         'category',
         'provider',
         'assignee',

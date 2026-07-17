@@ -1,0 +1,118 @@
+{% extends 'dashboard/base.html' %}
+{% load dashboard_tags %}
+
+{% block title %}Заявка №{{ ticket.pk }} — ЖКонстракт{% endblock %}
+{% block eyebrow %}Заявка №{{ ticket.pk }}{% endblock %}
+{% block page_title %}{{ ticket.title }}{% endblock %}
+{% block page_actions %}
+    <a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">← К списку</a>
+{% endblock %}
+
+{% block content %}
+    <div class="ticket-layout">
+        <div class="ticket-main-column">
+            <section class="panel ticket-hero">
+                <div class="ticket-hero-top">
+                    <div>
+                        <span class="status-badge status-large {{ ticket.status|status_class }}">{{ ticket.get_status_display }}</span>
+                        <span class="priority {{ ticket.priority|priority_class }}">{{ ticket.get_priority_display }} приоритет</span>
+                    </div>
+                    <span class="ticket-created">Создана {{ ticket.created_at|date:'d.m.Y в H:i' }}</span>
+                </div>
+                <p class="ticket-description">{{ ticket.description|linebreaksbr }}</p>
+                <div class="ticket-meta-grid">
+                    <div><span>Жилой комплекс</span><strong>{{ ticket.residential_complex.name }}</strong><small>{{ ticket.residential_complex.address }}</small></div>
+                    <div><span>Заявитель</span><strong>{{ ticket.applicant.full_name }}</strong><small>{% if ticket.applicant.apartment %}Квартира {{ ticket.applicant.apartment }} · {% endif %}{{ ticket.applicant.phone|default:'Телефон не указан' }}</small></div>
+                    <div><span>Категория</span><strong>{{ ticket.category.name }}</strong><small>{{ ticket.get_source_display }}</small></div>
+                    <div><span>Поставщик</span><strong>{{ ticket.provider.name|default:'Не назначен' }}</strong><small>{% if ticket.assignee %}{{ ticket.assignee.get_full_name|default:ticket.assignee.username }}{% else %}Исполнитель не выбран{% endif %}</small></div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <div><span class="section-kicker">Аудит</span><h2>История заявки</h2></div>
+                    <span class="count-pill">{{ history|length }} событий</span>
+                </div>
+                <div class="timeline">
+                    {% for item in history %}
+                        <article class="timeline-item">
+                            <span class="timeline-dot {{ item.to_status|status_class }}"></span>
+                            <div class="timeline-card">
+                                <div class="timeline-heading">
+                                    <strong>{{ item.get_to_status_display }}</strong>
+                                    <time>{{ item.created_at|date:'d.m.Y H:i' }}</time>
+                                </div>
+                                <p>{{ item.get_from_status_display }} → {{ item.get_to_status_display }}</p>
+                                {% if item.comment %}<blockquote>{{ item.comment }}</blockquote>{% endif %}
+                                <small>Изменил: {% if item.changed_by %}{{ item.changed_by.get_full_name|default:item.changed_by.username }}{% else %}Система{% endif %}</small>
+                            </div>
+                        </article>
+                    {% empty %}
+                        <div class="empty-state compact"><span>○</span><p>Статус ещё не менялся.</p></div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <aside class="ticket-actions-column">
+            <section class="panel action-panel">
+                <div class="panel-header"><div><span class="section-kicker">Управление</span><h2>Действия</h2></div></div>
+
+                {% if can_assign_provider and provider_links %}
+                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-assign-provider' ticket.pk %}">
+                        {% csrf_token %}
+                        <label for="provider-link">Назначить поставщика</label>
+                        <select id="provider-link" name="provider_link" required>
+                            <option value="">Выберите организацию</option>
+                            {% for link in provider_links %}<option value="{{ link.pk }}">{{ link.provider.name }}</option>{% endfor %}
+                        </select>
+                        <input name="comment" placeholder="Комментарий диспетчера">
+                        <button class="button button-primary button-wide" type="submit">Назначить</button>
+                    </form>
+                {% endif %}
+
+                {% if can_assign_employee and employees %}
+                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-assign-employee' ticket.pk %}">
+                        {% csrf_token %}
+                        <label for="employee">Назначить исполнителя</label>
+                        <select id="employee" name="employee" required>
+                            <option value="">Выберите сотрудника</option>
+                            {% for employee in employees %}<option value="{{ employee.pk }}" {% if ticket.assignee_id == employee.pk %}selected{% endif %}>{{ employee.get_full_name|default:employee.username }}</option>{% endfor %}
+                        </select>
+                        <button class="button button-secondary button-wide" type="submit">Сохранить исполнителя</button>
+                    </form>
+                {% endif %}
+
+                {% if transitions %}
+                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-change-status' ticket.pk %}">
+                        {% csrf_token %}
+                        <label for="new-status">Изменить статус</label>
+                        <select id="new-status" name="status" required>
+                            <option value="">Выберите следующий статус</option>
+                            {% for value, label in transitions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                        </select>
+                        <textarea name="comment" rows="3" placeholder="Что произошло с заявкой?"></textarea>
+                        <button class="button button-primary button-wide" type="submit">Обновить статус</button>
+                    </form>
+                {% endif %}
+
+                {% if not can_assign_provider and not can_assign_employee and not transitions %}
+                    <div class="empty-state compact"><span>✓</span><p>Для вашей роли сейчас нет доступных действий.</p></div>
+                {% endif %}
+            </section>
+
+            <section class="panel info-panel">
+                <h3>Технические данные</h3>
+                <dl>
+                    <div><dt>Источник</dt><dd>{{ ticket.get_source_display }}</dd></div>
+                    <div>
+                        <dt>Маршрутизация</dt>
+                        <dd>{% if routing_rule.mode == 'direct' %}Сразу поставщику: {{ routing_rule.provider.name }}{% else %}Через диспетчера ТСЖ{% endif %}</dd>
+                    </div>
+                    <div><dt>Внешний ID</dt><dd>{{ ticket.external_id|default:'—' }}</dd></div>
+                    <div><dt>Обновлена</dt><dd>{{ ticket.updated_at|date:'d.m.Y H:i' }}</dd></div>
+                </dl>
+            </section>
+        </aside>
+    </div>
+{% endblock %}

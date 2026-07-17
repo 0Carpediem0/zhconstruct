@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -42,8 +43,8 @@ class ResidentialComplexProvider(models.Model):
     class Source(models.TextChoices):
         # Источник нужен для разделения каталога внедренцев и собственных
         # подрядчиков ЖК без создания двух разных типов поставщиков.
-        PLATFORM = 'platform', 'Platform catalog'
-        RESIDENTIAL_COMPLEX = 'complex', 'Residential complex'
+        PLATFORM = 'platform', 'Каталог платформы'
+        RESIDENTIAL_COMPLEX = 'complex', 'Добавлен жилым комплексом'
 
     residential_complex = models.ForeignKey(
         ResidentialComplex,
@@ -79,13 +80,95 @@ class ResidentialComplexProvider(models.Model):
         return f'{self.residential_complex} — {self.provider}'
 
 
+class ServiceRoutingRule(models.Model):
+    """Правило первичной маршрутизации категории услуги внутри конкретного ЖК.
+
+    Если правила нет или выбран ручной режим, заявка попадает в очередь ТСЖ.
+    Прямой режим сразу назначает согласованного при внедрении поставщика.
+    """
+
+    class Mode(models.TextChoices):
+        MANUAL = 'manual', 'Через диспетчера ТСЖ'
+        DIRECT = 'direct', 'Сразу поставщику'
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='routing_rules',
+    )
+    category = models.ForeignKey(
+        'providers.ServiceCategory',
+        on_delete=models.PROTECT,
+        related_name='routing_rules',
+    )
+    mode = models.CharField(max_length=16, choices=Mode.choices, default=Mode.MANUAL)
+    provider = models.ForeignKey(
+        'providers.Provider',
+        on_delete=models.PROTECT,
+        related_name='direct_routing_rules',
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('residential_complex__name', 'category__name')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'category'),
+                name='unique_routing_rule_per_complex_category',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.mode == self.Mode.DIRECT and not self.provider_id:
+            errors['provider'] = 'Для прямой маршрутизации выберите поставщика.'
+        if self.mode == self.Mode.MANUAL and self.provider_id:
+            errors['provider'] = 'В ручном режиме поставщик заранее не назначается.'
+
+        if self.provider_id and self.residential_complex_id and self.category_id:
+            contract = ResidentialComplexProvider.objects.filter(
+                residential_complex_id=self.residential_complex_id,
+                provider_id=self.provider_id,
+                provider__is_active=True,
+                service_categories__id=self.category_id,
+                is_active=True,
+            ).exists()
+            if not contract:
+                errors['provider'] = (
+                    'Поставщик не подключён к ЖК для выбранной категории.'
+                )
+            else:
+                from providers.models import ProviderService
+
+                offers_service = ProviderService.objects.filter(
+                    provider_id=self.provider_id,
+                    category_id=self.category_id,
+                    is_active=True,
+                ).exists()
+                if not offers_service:
+                    errors['provider'] = 'У поставщика нет активной услуги этой категории.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return (
+            f'{self.residential_complex}: {self.category} — '
+            f'{self.get_mode_display()}'
+        )
+
+
 class ResidentialComplexMembership(models.Model):
     """Контекстная роль пользователя в конкретном жилом комплексе."""
 
     class Role(models.TextChoices):
-        RESIDENT = 'resident', 'Resident'
-        DISPATCHER = 'dispatcher', 'Dispatcher'
-        MANAGER = 'manager', 'Manager'
+        DISPATCHER = 'dispatcher', 'Диспетчер'
+        MANAGER = 'manager', 'Руководитель ЖК'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
