@@ -1,37 +1,65 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from complexes.models import ServiceRoutingRule
+from complexes.models import ResidentialComplexProvider, ServiceRoutingRule
 
 from .models import Ticket
 
 
 @transaction.atomic
 def apply_initial_routing(ticket, *, changed_by=None):
-    """Применяет внедренческое правило и при необходимости обходит очередь ТСЖ."""
+    """Автоматически выбирает поставщика, когда конфигурация даёт один ответ.
+
+    Явное правило внедренца имеет приоритет. Без него система использует
+    единственного доступного поставщика либо единственного предпочтительного.
+    Неоднозначная конфигурация безопасно оставляет заявку диспетчеру ЖК.
+    """
 
     rule = (
         ServiceRoutingRule.objects.select_related('provider')
         .filter(
             residential_complex_id=ticket.residential_complex_id,
             category_id=ticket.category_id,
-            mode=ServiceRoutingRule.Mode.DIRECT,
-            provider__isnull=False,
             is_active=True,
         )
         .first()
     )
-    if not rule:
+    provider = None
+    comment = ''
+    if rule:
+        if rule.mode == ServiceRoutingRule.Mode.MANUAL:
+            return ticket
+        provider = rule.provider
+        comment = 'Поставщик назначен по прямому правилу маршрутизации ЖК.'
+    else:
+        links = list(
+            ResidentialComplexProvider.objects.filter(
+                residential_complex_id=ticket.residential_complex_id,
+                service_categories=ticket.category,
+                provider__services__category=ticket.category,
+                provider__services__is_active=True,
+                provider__is_active=True,
+                is_active=True,
+            )
+            .select_related('provider')
+            .distinct()
+        )
+        preferred_links = [link for link in links if link.is_preferred]
+        if len(preferred_links) == 1:
+            provider = preferred_links[0].provider
+            comment = 'Назначен единственный предпочтительный поставщик ЖК.'
+        elif len(links) == 1:
+            provider = links[0].provider
+            comment = 'Назначен единственный доступный поставщик услуги.'
+
+    if provider is None:
         return ticket
 
     return assign_provider(
         ticket,
-        provider=rule.provider,
+        provider=provider,
         changed_by=changed_by,
-        comment=(
-            'Поставщик назначен автоматически по правилу прямой '
-            'маршрутизации ЖК.'
-        ),
+        comment=comment,
     )
 
 

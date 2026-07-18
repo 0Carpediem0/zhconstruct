@@ -5,7 +5,7 @@ from .models import ResidentialComplex
 
 def visible_complexes_for(user):
     queryset = ResidentialComplex.objects.filter(is_active=True)
-    if user.is_superuser:
+    if user.is_superuser or user.platform_role == user.PlatformRole.IMPLEMENTER:
         return queryset
     return queryset.filter(
         Q(memberships__user=user, memberships__is_active=True)

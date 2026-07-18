@@ -19,6 +19,56 @@ urlpatterns = [
     ),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', views.home, name='home'),
+    path(
+        'implementation/complexes/new/',
+        views.implementation_complex_create,
+        name='implementation-complex-create',
+    ),
+    path(
+        'implementation/complexes/<slug:complex_slug>/',
+        views.implementation_complex,
+        name='implementation-complex',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/',
+        views.home,
+        name='complex-home',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/',
+        views.ticket_list,
+        name='complex-ticket-list',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/new/',
+        views.ticket_create,
+        name='complex-ticket-create',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/<int:pk>/',
+        views.ticket_detail,
+        name='complex-ticket-detail',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/<int:pk>/assign-provider/',
+        views.ticket_assign_provider,
+        name='complex-ticket-assign-provider',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/<int:pk>/assign-employee/',
+        views.ticket_assign_employee,
+        name='complex-ticket-assign-employee',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/tickets/<int:pk>/change-status/',
+        views.ticket_change_status,
+        name='complex-ticket-change-status',
+    ),
+    path(
+        'complexes/<slug:complex_slug>/directories/',
+        views.directories,
+        name='complex-directories',
+    ),
     path('tickets/', views.ticket_list, name='ticket-list'),
     path('tickets/new/', views.ticket_create, name='ticket-create'),
     path('tickets/<int:pk>/', views.ticket_detail, name='ticket-detail'),

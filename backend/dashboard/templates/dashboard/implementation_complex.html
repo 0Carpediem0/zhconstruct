@@ -1,0 +1,64 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{{ complex.name }} — настройка{% endblock %}
+{% block eyebrow %}Настройка арендатора{% endblock %}
+{% block page_title %}{{ complex.name }}{% endblock %}
+{% block page_actions %}
+    <a class="button button-ghost" href="{% url 'dashboard:home' %}">← Ко всем ЖК</a>
+    {% if request.user.is_superuser %}<a class="button button-secondary" href="{% url 'dashboard:complex-home' complex.slug %}">Открыть для поддержки</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+    <section class="welcome-card">
+        <div><span class="welcome-label">{{ complex.slug }}</span><h2>{{ complex.address }}</h2><p>Конфигурация поставщиков, маршрутов и команды ЖК.</p></div>
+        <div class="role-list"><span>{% if complex.is_active %}Подключён{% else %}Отключён{% endif %}</span></div>
+    </section>
+
+    <div class="ticket-layout">
+        <div>
+            <section class="panel">
+                <div class="panel-header"><div><span class="section-kicker">Договоры</span><h2>Подключённые поставщики</h2></div></div>
+                <div class="timeline">
+                    {% for link in provider_links %}
+                        <article class="timeline-card"><strong>{{ link.provider.name }}</strong><p>{% for category in link.service_categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}Категории не настроены{% endfor %}</p><small>{% if link.is_preferred %}Предпочтительный{% else %}Обычный маршрут{% endif %}</small></article>
+                    {% empty %}<div class="empty-state"><p>Поставщики ещё не подключены.</p></div>{% endfor %}
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header"><div><span class="section-kicker">Автоматизация</span><h2>Правила маршрутизации</h2></div></div>
+                <div class="timeline">
+                    {% for rule in routing_rules %}
+                        <article class="timeline-card"><strong>{{ rule.category.name }}</strong><p>{{ rule.get_mode_display }}{% if rule.provider %}: {{ rule.provider.name }}{% endif %}</p></article>
+                    {% empty %}<div class="empty-state"><p>Явных правил нет: система попробует выбрать единственного или предпочтительного поставщика.</p></div>{% endfor %}
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header"><div><span class="section-kicker">Доступ</span><h2>Команда ЖК</h2></div></div>
+                <div class="timeline">
+                    {% for membership in memberships %}<article class="timeline-card"><strong>{{ membership.user.get_full_name|default:membership.user.username }}</strong><p>{{ membership.get_role_display }}</p></article>{% empty %}<div class="empty-state"><p>Сотрудники ещё не добавлены. Их можно назначить через административную панель.</p></div>{% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <aside class="ticket-actions-column">
+            <section class="panel action-panel">
+                <span class="section-kicker">Поставщик</span><h2>Подключить организацию</h2>
+                <form class="action-form" method="post">
+                    {% csrf_token %}<input type="hidden" name="action" value="connect_provider">
+                    {% for field in provider_form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% endfor %}
+                    <button class="button button-primary" type="submit">Сохранить поставщика</button>
+                </form>
+            </section>
+            <section class="panel action-panel">
+                <span class="section-kicker">Маршрут</span><h2>Настроить категорию</h2>
+                <form class="action-form" method="post">
+                    {% csrf_token %}<input type="hidden" name="action" value="save_routing">
+                    {% for field in routing_form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% endfor %}
+                    <button class="button button-primary" type="submit">Сохранить маршрут</button>
+                </form>
+            </section>
+        </aside>
+    </div>
+{% endblock %}

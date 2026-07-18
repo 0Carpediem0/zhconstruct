@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}ЖКонстракт{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'dashboard/app.css' %}">
+    <link rel="stylesheet" href="{% static 'dashboard/app.css' %}?v=20260718-2">
 </head>
 <body class="app-body">
     <div class="mobile-overlay" data-sidebar-overlay></div>
@@ -14,40 +14,32 @@
             <span class="brand-mark">ЖК</span>
             <span>
                 <strong>ЖКонстракт</strong>
-                <small>Операционный кабинет</small>
+                <small>{% if workspace_complex %}{{ workspace_complex.name }}{% elif request.user.is_superuser or request.user.platform_role == 'implementer' %}Конструктор ЖК{% else %}Кабинет поставщика{% endif %}</small>
             </span>
         </a>
 
         <nav class="sidebar-nav" aria-label="Основная навигация">
             <span class="nav-caption">Рабочее пространство</span>
-            <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}"
-               href="{% url 'dashboard:home' %}">
-                <span class="nav-icon">⌂</span> Обзор
-            </a>
-            <a class="nav-link {% if 'ticket' in request.resolver_match.url_name and request.resolver_match.url_name != 'ticket-create' %}active{% endif %}"
-               href="{% url 'dashboard:ticket-list' %}">
-                <span class="nav-icon">▤</span> Заявки
-            </a>
-            {% if can_register_ticket %}
-                <a class="nav-link {% if request.resolver_match.url_name == 'ticket-create' %}active{% endif %}"
-                   href="{% url 'dashboard:ticket-create' %}">
-                    <span class="nav-icon">＋</span> Регистрация заявки
-                </a>
+            {% if workspace_complex %}
+                <a class="nav-link {% if request.resolver_match.url_name == 'complex-home' %}active{% endif %}"
+                   href="{% url 'dashboard:complex-home' workspace_complex.slug %}"><span class="nav-icon">⌂</span> Обзор ЖК</a>
+                <a class="nav-link {% if 'ticket' in request.resolver_match.url_name and request.resolver_match.url_name != 'complex-ticket-create' %}active{% endif %}"
+                   href="{% url 'dashboard:complex-ticket-list' workspace_complex.slug %}"><span class="nav-icon">▤</span> Заявки ЖК</a>
+                {% if can_register_ticket %}
+                    <a class="nav-link {% if request.resolver_match.url_name == 'complex-ticket-create' %}active{% endif %}"
+                       href="{% url 'dashboard:complex-ticket-create' workspace_complex.slug %}"><span class="nav-icon">＋</span> Регистрация заявки</a>
+                {% endif %}
+                <a class="nav-link {% if request.resolver_match.url_name == 'complex-directories' %}active{% endif %}"
+                   href="{% url 'dashboard:complex-directories' workspace_complex.slug %}"><span class="nav-icon">◇</span> Настройки ЖК</a>
+                <a class="nav-link" href="{% url 'dashboard:home' %}"><span class="nav-icon">←</span> Сменить пространство</a>
+            {% elif request.user.is_superuser or request.user.platform_role == 'implementer' %}
+                <a class="nav-link active" href="{% url 'dashboard:home' %}"><span class="nav-icon">▦</span> Подключённые ЖК</a>
+            {% else %}
+                <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'dashboard:home' %}"><span class="nav-icon">⌂</span> Обзор</a>
+                <a class="nav-link {% if 'ticket' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'dashboard:ticket-list' %}"><span class="nav-icon">▤</span> Назначенные заявки</a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'directories' %}active{% endif %}" href="{% url 'dashboard:directories' %}"><span class="nav-icon">◇</span> Мои организации</a>
             {% endif %}
-            <a class="nav-link {% if request.resolver_match.url_name == 'directories' %}active{% endif %}"
-               href="{% url 'dashboard:directories' %}">
-                <span class="nav-icon">◇</span> Справочники
-            </a>
 
-            {% if request.user.is_superuser %}
-                <span class="nav-caption nav-caption-spaced">Инструменты</span>
-                <a class="nav-link" href="/admin/">
-                    <span class="nav-icon">⚙</span> Django Admin
-                </a>
-                <a class="nav-link" href="/api/">
-                    <span class="nav-icon">⌘</span> REST API
-                </a>
-            {% endif %}
         </nav>
 
         <div class="sidebar-user">

@@ -13,9 +13,9 @@
         </thead>
         <tbody>
             {% for ticket in tickets %}
-                <tr data-href="{% url 'dashboard:ticket-detail' ticket.pk %}" tabindex="0">
+                <tr data-href="{% if workspace_complex %}{% url 'dashboard:complex-ticket-detail' workspace_complex.slug ticket.pk %}{% else %}{% url 'dashboard:ticket-detail' ticket.pk %}{% endif %}" tabindex="0">
                     <td>
-                        <a class="ticket-link" href="{% url 'dashboard:ticket-detail' ticket.pk %}">
+                        <a class="ticket-link" href="{% if workspace_complex %}{% url 'dashboard:complex-ticket-detail' workspace_complex.slug ticket.pk %}{% else %}{% url 'dashboard:ticket-detail' ticket.pk %}{% endif %}">
                             <span class="ticket-number">№{{ ticket.pk }}</span>
                             <strong>{{ ticket.title }}</strong>
                             <small>{{ ticket.applicant.full_name }}{% if ticket.applicant.apartment %}, кв. {{ ticket.applicant.apartment }}{% endif %}</small>

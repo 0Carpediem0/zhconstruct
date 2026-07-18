@@ -20,6 +20,8 @@ def has_internal_access(user):
         return False
     if user.is_superuser:
         return True
+    if user.platform_role == user.PlatformRole.IMPLEMENTER:
+        return True
     return (
         ResidentialComplexMembership.objects.filter(
             user=user,

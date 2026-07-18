@@ -39,12 +39,18 @@ class Command(BaseCommand):
         admin.save()
 
         dispatcher, _ = user_model.objects.get_or_create(username='demo-dispatcher')
+        north_dispatcher, _ = user_model.objects.get_or_create(
+            username='demo-dispatcher-north',
+        )
+        implementer, _ = user_model.objects.get_or_create(username='demo-implementer')
         employee, _ = user_model.objects.get_or_create(username='demo-employee')
         provider_manager, _ = user_model.objects.get_or_create(
             username='demo-provider-manager',
         )
         demo_users = (
             (dispatcher, 'Мария', 'Диспетчерова'),
+            (north_dispatcher, 'Ольга', 'Северова'),
+            (implementer, 'Виктор', 'Внедренец'),
             (employee, 'Алексей', 'Мастер'),
             (provider_manager, 'Игорь', 'Руководитель'),
         )
@@ -54,12 +60,21 @@ class Command(BaseCommand):
             if options.get('demo_password'):
                 user.set_password(options['demo_password'])
             user.save()
+        implementer.platform_role = user_model.PlatformRole.IMPLEMENTER
+        implementer.save(update_fields=('platform_role',))
 
         residential_complex, _ = ResidentialComplex.objects.get_or_create(
             slug='sunny-demo',
             defaults={
                 'name': 'ЖК Солнечный',
                 'address': 'г. Екатеринбург, ул. Демонстрационная, д. 1',
+            },
+        )
+        north_complex, _ = ResidentialComplex.objects.get_or_create(
+            slug='northern-demo',
+            defaults={
+                'name': 'ЖК Северный',
+                'address': 'г. Екатеринбург, ул. Северная, д. 10',
             },
         )
         applicant, _ = Applicant.objects.update_or_create(
@@ -70,6 +85,16 @@ class Command(BaseCommand):
                 'phone': '+7 900 000-00-01',
                 'email': 'anna@example.test',
                 'apartment': '42',
+                'is_active': True,
+            },
+        )
+        north_applicant, _ = Applicant.objects.update_or_create(
+            residential_complex=north_complex,
+            external_id='demo-applicant-north',
+            defaults={
+                'full_name': 'Елена Петрова',
+                'phone': '+7 900 000-00-02',
+                'apartment': '15',
                 'is_active': True,
             },
         )
@@ -134,6 +159,14 @@ class Command(BaseCommand):
         ResidentialComplexMembership.objects.update_or_create(
             user=dispatcher,
             residential_complex=residential_complex,
+            defaults={
+                'role': ResidentialComplexMembership.Role.DISPATCHER,
+                'is_active': True,
+            },
+        )
+        ResidentialComplexMembership.objects.update_or_create(
+            user=north_dispatcher,
+            residential_complex=north_complex,
             defaults={
                 'role': ResidentialComplexMembership.Role.DISPATCHER,
                 'is_active': True,
@@ -294,11 +327,27 @@ class Command(BaseCommand):
             tickets__isnull=True,
         ).exclude(pk=applicant.pk).update(is_active=False)
 
+        Ticket.objects.update_or_create(
+            residential_complex=north_complex,
+            source=Ticket.Source.IMPORT,
+            external_id='demo-ticket-north',
+            defaults={
+                'applicant': north_applicant,
+                'title': 'Не работает домофон',
+                'description': 'Домофон у первого подъезда не отвечает.',
+                'category': electricity_category,
+                'priority': Ticket.Priority.NORMAL,
+                'status': Ticket.Status.NEW,
+                'provider': None,
+                'assignee': None,
+            },
+        )
+
         self.stdout.write(self.style.SUCCESS('Демонстрационные данные готовы.'))
         self.stdout.write('Django Admin: http://localhost:8000/admin/')
         self.stdout.write('Логин: admin')
         if options.get('demo_password'):
             self.stdout.write(
-                'Демо-логины: demo-dispatcher, demo-provider-manager, '
-                'demo-employee'
+                'Демо-логины: demo-dispatcher, demo-dispatcher-north, '
+                'demo-implementer, demo-provider-manager, demo-employee'
             )

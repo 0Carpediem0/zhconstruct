@@ -241,7 +241,12 @@ class TicketModelTests(TestCase):
 
         self.assertNotEqual(first_ticket.pk, second_ticket.pk)
 
-    def test_ticket_stays_in_tsj_queue_without_direct_rule(self):
+    def test_explicit_manual_rule_keeps_ticket_in_tsj_queue(self):
+        ServiceRoutingRule.objects.create(
+            residential_complex=self.residential_complex,
+            category=self.category,
+            mode=ServiceRoutingRule.Mode.MANUAL,
+        )
         ticket = self.make_ticket()
         ticket.full_clean()
         ticket.save()
@@ -252,6 +257,64 @@ class TicketModelTests(TestCase):
         self.assertEqual(ticket.status, Ticket.Status.NEW)
         self.assertIsNone(ticket.provider)
         self.assertFalse(ticket.status_history.exists())
+
+    def test_unique_available_provider_is_assigned_automatically(self):
+        ticket = self.make_ticket()
+        ticket.full_clean()
+        ticket.save()
+
+        apply_initial_routing(ticket)
+
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.provider, self.provider)
+        self.assertEqual(ticket.status, Ticket.Status.ASSIGNED)
+        self.assertIn(
+            'единственный доступный',
+            ticket.status_history.get().comment,
+        )
+
+    def test_ambiguous_provider_choice_stays_in_tsj_queue(self):
+        ProviderService.objects.create(
+            provider=self.other_provider,
+            category=self.category,
+        )
+        other_link = ResidentialComplexProvider.objects.create(
+            residential_complex=self.residential_complex,
+            provider=self.other_provider,
+            source=ResidentialComplexProvider.Source.PLATFORM,
+        )
+        other_link.service_categories.add(self.category)
+        ticket = self.make_ticket()
+        ticket.full_clean()
+        ticket.save()
+
+        apply_initial_routing(ticket)
+
+        ticket.refresh_from_db()
+        self.assertIsNone(ticket.provider)
+        self.assertEqual(ticket.status, Ticket.Status.NEW)
+
+    def test_single_preferred_provider_resolves_ambiguous_choice(self):
+        ProviderService.objects.create(
+            provider=self.other_provider,
+            category=self.category,
+        )
+        other_link = ResidentialComplexProvider.objects.create(
+            residential_complex=self.residential_complex,
+            provider=self.other_provider,
+            source=ResidentialComplexProvider.Source.PLATFORM,
+            is_preferred=True,
+        )
+        other_link.service_categories.add(self.category)
+        ticket = self.make_ticket()
+        ticket.full_clean()
+        ticket.save()
+
+        apply_initial_routing(ticket)
+
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.provider, self.other_provider)
+        self.assertEqual(ticket.status, Ticket.Status.ASSIGNED)
 
     def test_direct_rule_assigns_provider_without_tsj_approval(self):
         rule = ServiceRoutingRule(
@@ -272,7 +335,7 @@ class TicketModelTests(TestCase):
         self.assertEqual(ticket.provider, self.provider)
         self.assertEqual(ticket.status, Ticket.Status.ASSIGNED)
         history = ticket.status_history.get()
-        self.assertIn('автоматически', history.comment)
+        self.assertIn('прямому правилу', history.comment)
         self.assertIsNone(history.changed_by)
 
     def test_direct_rule_rejects_provider_without_matching_contract(self):

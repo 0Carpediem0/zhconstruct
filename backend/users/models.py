@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
 class User(AbstractUser):
@@ -9,4 +10,15 @@ class User(AbstractUser):
     получают учётную запись только из-за факта обращения.
     """
 
-    pass
+    class PlatformRole(models.TextChoices):
+        NONE = '', 'Нет платформенной роли'
+        IMPLEMENTER = 'implementer', 'Внедренец'
+
+    # Платформенная роль не подменяет членство в ЖК или организации-поставщике.
+    # Внедренец настраивает арендаторов, но не получает доступ к их заявкам.
+    platform_role = models.CharField(
+        max_length=24,
+        choices=PlatformRole.choices,
+        blank=True,
+        default=PlatformRole.NONE,
+    )

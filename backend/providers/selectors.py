@@ -7,7 +7,7 @@ def visible_providers_for(user):
     queryset = Provider.objects.filter(is_active=True).prefetch_related(
         'service_categories',
     )
-    if user.is_superuser:
+    if user.is_superuser or user.platform_role == user.PlatformRole.IMPLEMENTER:
         return queryset
     return queryset.filter(
         Q(memberships__user=user, memberships__is_active=True)

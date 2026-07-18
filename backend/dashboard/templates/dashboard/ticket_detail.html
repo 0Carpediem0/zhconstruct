@@ -5,7 +5,7 @@
 {% block eyebrow %}Заявка №{{ ticket.pk }}{% endblock %}
 {% block page_title %}{{ ticket.title }}{% endblock %}
 {% block page_actions %}
-    <a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">← К списку</a>
+    <a class="button button-ghost" href="{% if workspace_complex %}{% url 'dashboard:complex-ticket-list' workspace_complex.slug %}{% else %}{% url 'dashboard:ticket-list' %}{% endif %}">← К списку</a>
 {% endblock %}
 
 {% block content %}
@@ -59,7 +59,7 @@
                 <div class="panel-header"><div><span class="section-kicker">Управление</span><h2>Действия</h2></div></div>
 
                 {% if can_assign_provider and provider_links %}
-                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-assign-provider' ticket.pk %}">
+                    <form class="action-form" method="post" action="{% if workspace_complex %}{% url 'dashboard:complex-ticket-assign-provider' workspace_complex.slug ticket.pk %}{% else %}{% url 'dashboard:ticket-assign-provider' ticket.pk %}{% endif %}">
                         {% csrf_token %}
                         <label for="provider-link">Назначить поставщика</label>
                         <select id="provider-link" name="provider_link" required>
@@ -72,7 +72,7 @@
                 {% endif %}
 
                 {% if can_assign_employee and employees %}
-                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-assign-employee' ticket.pk %}">
+                    <form class="action-form" method="post" action="{% if workspace_complex %}{% url 'dashboard:complex-ticket-assign-employee' workspace_complex.slug ticket.pk %}{% else %}{% url 'dashboard:ticket-assign-employee' ticket.pk %}{% endif %}">
                         {% csrf_token %}
                         <label for="employee">Назначить исполнителя</label>
                         <select id="employee" name="employee" required>
@@ -84,7 +84,7 @@
                 {% endif %}
 
                 {% if transitions %}
-                    <form class="action-form" method="post" action="{% url 'dashboard:ticket-change-status' ticket.pk %}">
+                    <form class="action-form" method="post" action="{% if workspace_complex %}{% url 'dashboard:complex-ticket-change-status' workspace_complex.slug ticket.pk %}{% else %}{% url 'dashboard:ticket-change-status' ticket.pk %}{% endif %}">
                         {% csrf_token %}
                         <label for="new-status">Изменить статус</label>
                         <select id="new-status" name="status" required>
@@ -107,7 +107,7 @@
                     <div><dt>Источник</dt><dd>{{ ticket.get_source_display }}</dd></div>
                     <div>
                         <dt>Маршрутизация</dt>
-                        <dd>{% if routing_rule.mode == 'direct' %}Сразу поставщику: {{ routing_rule.provider.name }}{% else %}Через диспетчера ТСЖ{% endif %}</dd>
+                        <dd>{{ routing_description }}</dd>
                     </div>
                     <div><dt>Внешний ID</dt><dd>{{ ticket.external_id|default:'—' }}</dd></div>
                     <div><dt>Обновлена</dt><dd>{{ ticket.updated_at|date:'d.m.Y H:i' }}</dd></div>

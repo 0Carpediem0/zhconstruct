@@ -1,0 +1,33 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Подключение ЖК — ЖКонстракт{% endblock %}
+{% block eyebrow %}Конструктор{% endblock %}
+{% block page_title %}Подключение нового ЖК{% endblock %}
+{% block page_actions %}<a class="button button-ghost" href="{% url 'dashboard:home' %}">Отмена</a>{% endblock %}
+
+{% block content %}
+    <div class="form-layout">
+        <form class="panel form-card" method="post">
+            {% csrf_token %}
+            <div class="panel-header"><div><span class="section-kicker">Шаг 1</span><h2>Основные данные</h2></div></div>
+            {% for field in form %}
+                <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+                </div>
+            {% endfor %}
+            <div class="form-actions"><button class="button button-primary" type="submit">Подключить ЖК</button></div>
+        </form>
+        <aside class="form-aside">
+            <span class="aside-number">01</span>
+            <h3>Что будет создано?</h3>
+            <ol>
+                <li>Отдельное рабочее пространство ЖК.</li>
+                <li>Изолированная очередь заявок.</li>
+                <li>Возможность подключить поставщиков.</li>
+                <li>Правила автоматического назначения.</li>
+            </ol>
+        </aside>
+    </div>
+{% endblock %}

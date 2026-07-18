@@ -1,0 +1,26 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Выбор ЖК — ЖКонстракт{% endblock %}
+{% block eyebrow %}Рабочее пространство{% endblock %}
+{% block page_title %}Выберите жилой комплекс{% endblock %}
+
+{% block content %}
+    <section class="welcome-card">
+        <div>
+            <span class="welcome-label">Изоляция данных</span>
+            <h2>Каждый ЖК работает в отдельном кабинете</h2>
+            <p>Заявки, поставщики и настройки выбранного ЖК не смешиваются с другими пространствами.</p>
+        </div>
+    </section>
+    <div class="directory-grid">
+        {% for membership in memberships %}
+            <a class="directory-card" href="{% url 'dashboard:complex-home' membership.residential_complex.slug %}">
+                <span class="directory-icon complex-icon">ЖК</span>
+                <div><h3>{{ membership.residential_complex.name }}</h3><p>{{ membership.residential_complex.address }}</p></div>
+                <div class="directory-tags"><span>{{ membership.get_role_display }}</span></div>
+            </a>
+        {% empty %}
+            <div class="empty-state"><p>Нет доступных рабочих пространств.</p></div>
+        {% endfor %}
+    </div>
+{% endblock %}

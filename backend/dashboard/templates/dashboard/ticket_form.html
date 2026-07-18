@@ -3,7 +3,7 @@
 {% block title %}Регистрация заявки — ЖКонстракт{% endblock %}
 {% block eyebrow %}Ручной канал приёма{% endblock %}
 {% block page_title %}Регистрация заявки{% endblock %}
-{% block page_actions %}<a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">Отмена</a>{% endblock %}
+{% block page_actions %}<a class="button button-ghost" href="{% url 'dashboard:complex-ticket-list' workspace_complex.slug %}">Отмена</a>{% endblock %}
 
 {% block content %}
     <div class="form-layout">
@@ -24,7 +24,7 @@
             {% endfor %}
             <div class="form-actions">
                 <button class="button button-primary" type="submit">Зарегистрировать заявку</button>
-                <a class="button button-ghost" href="{% url 'dashboard:ticket-list' %}">Вернуться к списку</a>
+                <a class="button button-ghost" href="{% url 'dashboard:complex-ticket-list' workspace_complex.slug %}">Вернуться к списку</a>
             </div>
         </form>
         <aside class="form-aside">

@@ -142,7 +142,10 @@ class DashboardScenarioTests(TestCase):
         self.client.force_login(self.dispatcher)
 
         response = self.client.post(
-            reverse('dashboard:ticket-create'),
+            reverse(
+                'dashboard:complex-ticket-create',
+                args=[self.complex.slug],
+            ),
             {
                 'residential_complex': self.complex.pk,
                 'applicant': self.applicant.pk,
@@ -156,7 +159,10 @@ class DashboardScenarioTests(TestCase):
         created_ticket = Ticket.objects.get(title='Не горит лампа')
         self.assertRedirects(
             response,
-            reverse('dashboard:ticket-detail', args=[created_ticket.pk]),
+            reverse(
+                'dashboard:complex-ticket-detail',
+                args=[self.complex.slug, created_ticket.pk],
+            ),
         )
         self.assertEqual(created_ticket.applicant, self.applicant)
         self.assertEqual(created_ticket.source, Ticket.Source.DIRECT)
@@ -165,13 +171,19 @@ class DashboardScenarioTests(TestCase):
         self.client.force_login(self.dispatcher)
 
         response = self.client.post(
-            reverse('dashboard:ticket-assign-provider', args=[self.ticket.pk]),
+            reverse(
+                'dashboard:complex-ticket-assign-provider',
+                args=[self.complex.slug, self.ticket.pk],
+            ),
             {'provider_link': self.provider_link.pk, 'comment': 'Передано подрядчику'},
         )
 
         self.assertRedirects(
             response,
-            reverse('dashboard:ticket-detail', args=[self.ticket.pk]),
+            reverse(
+                'dashboard:complex-ticket-detail',
+                args=[self.complex.slug, self.ticket.pk],
+            ),
         )
         self.ticket.refresh_from_db()
         self.assertEqual(self.ticket.provider, self.provider)
@@ -190,7 +202,10 @@ class DashboardScenarioTests(TestCase):
         self.client.force_login(self.dispatcher)
 
         response = self.client.post(
-            reverse('dashboard:ticket-create'),
+            reverse(
+                'dashboard:complex-ticket-create',
+                args=[self.complex.slug],
+            ),
             {
                 'residential_complex': self.complex.pk,
                 'applicant': self.applicant.pk,
@@ -204,7 +219,10 @@ class DashboardScenarioTests(TestCase):
         ticket = Ticket.objects.get(title='Прямая заявка на клининг')
         self.assertRedirects(
             response,
-            reverse('dashboard:ticket-detail', args=[ticket.pk]),
+            reverse(
+                'dashboard:complex-ticket-detail',
+                args=[self.complex.slug, ticket.pk],
+            ),
         )
         self.assertEqual(ticket.provider, self.provider)
         self.assertEqual(ticket.status, Ticket.Status.ASSIGNED)
@@ -260,7 +278,9 @@ class DashboardScenarioTests(TestCase):
         )
         self.client.force_login(self.dispatcher)
 
-        response = self.client.get(reverse('dashboard:directories'))
+        response = self.client.get(
+            reverse('dashboard:complex-directories', args=[self.complex.slug]),
+        )
 
         self.assertContains(response, self.complex.name)
         self.assertNotContains(response, unrelated_complex.name)
@@ -270,7 +290,7 @@ class DashboardScenarioTests(TestCase):
 
         response = self.client.get(reverse('dashboard:ticket-create'))
 
-        self.assertEqual(response.status_code, 403)
+        self.assertRedirects(response, reverse('dashboard:home'))
 
     def test_provider_workspace_does_not_show_registration_action(self):
         self.client.force_login(self.provider_manager)
@@ -279,3 +299,56 @@ class DashboardScenarioTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'Регистрация заявки')
+
+    def test_dispatcher_root_redirects_to_own_complex_workspace(self):
+        self.client.force_login(self.dispatcher)
+
+        response = self.client.get(reverse('dashboard:home'))
+
+        self.assertRedirects(
+            response,
+            reverse('dashboard:complex-home', args=[self.complex.slug]),
+        )
+
+    def test_complex_cannot_open_another_complex_workspace(self):
+        other_complex = ResidentialComplex.objects.create(
+            name='ЖК Закрытый',
+            slug='closed-complex',
+            address='Закрытый адрес',
+        )
+        self.client.force_login(self.dispatcher)
+
+        response = self.client.get(
+            reverse('dashboard:complex-home', args=[other_complex.slug]),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_implementer_sees_configuration_but_not_common_ticket_queue(self):
+        implementer = get_user_model().objects.create_user(
+            username='implementer',
+            platform_role=get_user_model().PlatformRole.IMPLEMENTER,
+        )
+        self.client.force_login(implementer)
+
+        response = self.client.get(reverse('dashboard:home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.complex.name)
+        self.assertContains(response, 'Настроить')
+        self.assertNotContains(response, self.ticket.title)
+        self.assertEqual(
+            self.client.get(
+                reverse('dashboard:complex-home', args=[self.complex.slug]),
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    'dashboard:implementation-complex',
+                    args=[self.complex.slug],
+                ),
+            ).status_code,
+            200,
+        )
