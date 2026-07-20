@@ -1,11 +1,16 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.utils import timezone
 
 from complexes.models import (
     ResidentialComplex,
+    ResidentialComplexIntakeChannel,
     ResidentialComplexMembership,
+    ResidentialComplexNotificationRule,
     ResidentialComplexProvider,
+    ResidentialComplexService,
     ServiceRoutingRule,
 )
 from providers.models import Provider, ProviderService, ServiceCategory
@@ -34,13 +39,181 @@ class ResidentialComplexSetupForm(forms.ModelForm):
 
     class Meta:
         model = ResidentialComplex
-        fields = ('name', 'slug', 'address', 'is_active')
+        fields = ('name', 'slug', 'address', 'management_company', 'timezone', 'is_active')
         labels = {
             'name': 'Название ЖК',
             'slug': 'Код в адресе страницы',
             'address': 'Адрес',
+            'management_company': 'Управляющая организация',
+            'timezone': 'Часовой пояс',
             'is_active': 'ЖК подключён',
         }
+
+
+class ResidentialComplexProfileForm(forms.ModelForm):
+    """Рабочая карточка ЖК и контакт ответственного со стороны заказчика."""
+
+    class Meta:
+        model = ResidentialComplex
+        fields = (
+            'name', 'slug', 'address', 'management_company', 'timezone',
+            'contact_name', 'contact_email', 'contact_phone',
+        )
+        labels = {
+            'name': 'Название ЖК',
+            'slug': 'Код в адресе страницы',
+            'address': 'Адрес',
+            'management_company': 'Управляющая организация',
+            'timezone': 'Часовой пояс',
+            'contact_name': 'Ответственный за внедрение',
+            'contact_email': 'Рабочая почта',
+            'contact_phone': 'Телефон',
+        }
+
+
+class ComplexTeamMemberForm(forms.Form):
+    first_name = forms.CharField(label='Имя', max_length=150)
+    last_name = forms.CharField(label='Фамилия', max_length=150, required=False)
+    email = forms.EmailField(label='Рабочая почта')
+    role = forms.ChoiceField(
+        label='Роль в ЖК',
+        choices=ResidentialComplexMembership.Role.choices,
+    )
+    temporary_password = forms.CharField(
+        label='Временный пароль',
+        min_length=8,
+        widget=forms.PasswordInput(render_value=True),
+    )
+
+    def __init__(self, *args, residential_complex, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.residential_complex = residential_complex
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].lower()
+        user = get_user_model().objects.filter(email__iexact=email).first()
+        if user and ResidentialComplexMembership.objects.filter(
+            user=user,
+            residential_complex=self.residential_complex,
+        ).exists():
+            raise ValidationError('Этот сотрудник уже добавлен в команду ЖК.')
+        return email
+
+    def save(self):
+        User = get_user_model()
+        email = self.cleaned_data['email']
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None:
+            base_username = email.split('@')[0]
+            username = base_username
+            suffix = 1
+            while User.objects.filter(username=username).exists():
+                suffix += 1
+                username = f'{base_username}-{suffix}'
+            user = User(
+                username=username,
+                email=email,
+                first_name=self.cleaned_data['first_name'],
+                last_name=self.cleaned_data['last_name'],
+            )
+            user.set_password(self.cleaned_data['temporary_password'])
+            user.save()
+        return ResidentialComplexMembership.objects.create(
+            user=user,
+            residential_complex=self.residential_complex,
+            role=self.cleaned_data['role'],
+        )
+
+
+class IntakeChannelSetupForm(forms.ModelForm):
+    class Meta:
+        model = ResidentialComplexIntakeChannel
+        fields = ('channel_type', 'description', 'is_enabled', 'is_verified')
+        labels = {
+            'channel_type': 'Канал',
+            'description': 'Как подключён / примечание',
+            'is_enabled': 'Принимать заявки',
+            'is_verified': 'Соединение проверено',
+        }
+        widgets = {'description': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, residential_complex, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.residential_complex = residential_complex
+
+    def save(self):
+        data = self.cleaned_data
+        channel, _ = ResidentialComplexIntakeChannel.objects.update_or_create(
+            residential_complex=self.residential_complex,
+            channel_type=data['channel_type'],
+            defaults={
+                'description': data['description'],
+                'is_enabled': data['is_enabled'],
+                'is_verified': data['is_verified'],
+                'last_verified_at': timezone.now() if data['is_verified'] else None,
+            },
+        )
+        return channel
+
+
+class ComplexServiceSetupForm(forms.ModelForm):
+    class Meta:
+        model = ResidentialComplexService
+        fields = (
+            'category', 'default_priority', 'response_time_minutes',
+            'working_hours', 'auto_assignment_enabled', 'fallback', 'is_active',
+        )
+        labels = {
+            'category': 'Категория услуги',
+            'default_priority': 'Приоритет по умолчанию',
+            'response_time_minutes': 'Норматив реакции, минут',
+            'working_hours': 'Время работы',
+            'auto_assignment_enabled': 'Пробовать назначить автоматически',
+            'fallback': 'Если назначить не удалось',
+            'is_active': 'Услуга доступна в ЖК',
+        }
+
+    def __init__(self, *args, residential_complex, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.residential_complex = residential_complex
+        self.fields['category'].queryset = ServiceCategory.objects.filter(is_active=True)
+
+    def save(self):
+        data = self.cleaned_data
+        setting, _ = ResidentialComplexService.objects.update_or_create(
+            residential_complex=self.residential_complex,
+            category=data['category'],
+            defaults={key: data[key] for key in (
+                'default_priority', 'response_time_minutes', 'working_hours',
+                'auto_assignment_enabled', 'fallback', 'is_active',
+            )},
+        )
+        return setting
+
+
+class NotificationRuleSetupForm(forms.ModelForm):
+    class Meta:
+        model = ResidentialComplexNotificationRule
+        fields = ('event', 'recipient', 'is_enabled')
+        labels = {
+            'event': 'Когда уведомлять',
+            'recipient': 'Получатели',
+            'is_enabled': 'Правило включено',
+        }
+
+    def __init__(self, *args, residential_complex, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.residential_complex = residential_complex
+
+    def save(self):
+        data = self.cleaned_data
+        rule, _ = ResidentialComplexNotificationRule.objects.update_or_create(
+            residential_complex=self.residential_complex,
+            event=data['event'],
+            recipient=data['recipient'],
+            defaults={'is_enabled': data['is_enabled']},
+        )
+        return rule
 
 
 class ProviderLinkSetupForm(forms.Form):
@@ -56,6 +229,20 @@ class ProviderLinkSetupForm(forms.Form):
         required=False,
         label='Предпочтительный для автоназначения',
     )
+    auto_assignment_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+        label='Разрешить автоназначение',
+    )
+    contract_number = forms.CharField(required=False, label='Номер договора')
+    contract_valid_until = forms.DateField(
+        required=False,
+        label='Договор действует до',
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+    contact_name = forms.CharField(required=False, label='Контактное лицо')
+    contact_email = forms.EmailField(required=False, label='Почта поставщика')
+    contact_phone = forms.CharField(required=False, label='Телефон поставщика')
 
     def __init__(self, *args, residential_complex, **kwargs):
         super().__init__(*args, **kwargs)
@@ -91,6 +278,12 @@ class ProviderLinkSetupForm(forms.Form):
             defaults={
                 'source': ResidentialComplexProvider.Source.PLATFORM,
                 'is_preferred': self.cleaned_data['is_preferred'],
+                'auto_assignment_enabled': self.cleaned_data['auto_assignment_enabled'],
+                'contract_number': self.cleaned_data['contract_number'],
+                'contract_valid_until': self.cleaned_data['contract_valid_until'],
+                'contact_name': self.cleaned_data['contact_name'],
+                'contact_email': self.cleaned_data['contact_email'],
+                'contact_phone': self.cleaned_data['contact_phone'],
                 'is_active': True,
             },
         )

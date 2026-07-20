@@ -1,9 +1,14 @@
 from django.contrib import admin
 
 from .models import (
+    ComplexConfigurationEvent,
+    ImplementationTestRun,
     ResidentialComplex,
+    ResidentialComplexIntakeChannel,
     ResidentialComplexMembership,
+    ResidentialComplexNotificationRule,
     ResidentialComplexProvider,
+    ResidentialComplexService,
     ServiceRoutingRule,
 )
 
@@ -21,8 +26,8 @@ class ResidentialComplexMembershipInline(admin.TabularInline):
 
 @admin.register(ResidentialComplex)
 class ResidentialComplexAdmin(admin.ModelAdmin):
-    list_display = ('name', 'address', 'is_active')
-    list_filter = ('is_active',)
+    list_display = ('name', 'address', 'lifecycle_status', 'is_active')
+    list_filter = ('lifecycle_status', 'is_active')
     search_fields = ('name', 'address')
     prepopulated_fields = {'slug': ('name',)}
     inlines = (
@@ -74,3 +79,43 @@ class ServiceRoutingRuleAdmin(admin.ModelAdmin):
         'provider__name',
     )
     autocomplete_fields = ('residential_complex', 'category', 'provider')
+
+
+@admin.register(ResidentialComplexIntakeChannel)
+class ResidentialComplexIntakeChannelAdmin(admin.ModelAdmin):
+    list_display = (
+        'residential_complex', 'channel_type', 'is_enabled', 'is_verified',
+    )
+    list_filter = ('channel_type', 'is_enabled', 'is_verified')
+    autocomplete_fields = ('residential_complex',)
+
+
+@admin.register(ResidentialComplexService)
+class ResidentialComplexServiceAdmin(admin.ModelAdmin):
+    list_display = (
+        'residential_complex', 'category', 'auto_assignment_enabled', 'is_active',
+    )
+    list_filter = ('auto_assignment_enabled', 'is_active')
+    autocomplete_fields = ('residential_complex', 'category')
+
+
+@admin.register(ResidentialComplexNotificationRule)
+class ResidentialComplexNotificationRuleAdmin(admin.ModelAdmin):
+    list_display = ('residential_complex', 'event', 'recipient', 'is_enabled')
+    list_filter = ('event', 'recipient', 'is_enabled')
+    autocomplete_fields = ('residential_complex',)
+
+
+@admin.register(ImplementationTestRun)
+class ImplementationTestRunAdmin(admin.ModelAdmin):
+    list_display = ('residential_complex', 'is_successful', 'started_by', 'created_at')
+    list_filter = ('is_successful',)
+    readonly_fields = ('results', 'created_at')
+
+
+@admin.register(ComplexConfigurationEvent)
+class ComplexConfigurationEventAdmin(admin.ModelAdmin):
+    list_display = ('residential_complex', 'event_type', 'actor', 'created_at')
+    list_filter = ('event_type',)
+    search_fields = ('residential_complex__name', 'description', 'actor__username')
+    readonly_fields = ('created_at',)

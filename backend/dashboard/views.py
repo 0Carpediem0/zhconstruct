@@ -7,10 +7,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from complexes.models import (
+    ComplexConfigurationEvent,
     ResidentialComplex,
     ResidentialComplexMembership,
     ResidentialComplexProvider,
     ServiceRoutingRule,
+)
+from complexes.onboarding import (
+    build_readiness,
+    launch_complex,
+    run_implementation_test,
 )
 from complexes.selectors import visible_complexes_for
 from providers.models import ProviderMembership, ServiceCategory
@@ -27,7 +33,12 @@ from tickets.permissions import (
 from tickets.services import apply_initial_routing, assign_employee, assign_provider
 
 from .forms import (
+    ComplexServiceSetupForm,
+    ComplexTeamMemberForm,
+    IntakeChannelSetupForm,
+    NotificationRuleSetupForm,
     ProviderLinkSetupForm,
+    ResidentialComplexProfileForm,
     ResidentialComplexSetupForm,
     RoutingRuleSetupForm,
     TicketWebCreateForm,
@@ -153,6 +164,12 @@ def implementation_complex_create(request):
     form = ResidentialComplexSetupForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         residential_complex = form.save()
+        ComplexConfigurationEvent.objects.create(
+            residential_complex=residential_complex,
+            actor=request.user,
+            event_type=ComplexConfigurationEvent.Type.PROFILE,
+            description='Создан контур нового ЖК.',
+        )
         messages.success(request, f'ЖК «{residential_complex.name}» подключён.')
         return redirect(
             'dashboard:implementation-complex',
@@ -166,10 +183,48 @@ def implementation_complex_create(request):
 
 
 @internal_user_required
-def implementation_complex(request, complex_slug):
+def implementation_complex(request, complex_slug, section='overview'):
     _require_platform_operator(request.user)
+    sections = {
+        'overview': 'Обзор',
+        'profile': 'Данные ЖК',
+        'team': 'Команда',
+        'channels': 'Каналы заявок',
+        'services': 'Услуги',
+        'providers': 'Поставщики',
+        'routing': 'Маршрутизация',
+        'launch': 'Проверка и запуск',
+        'audit': 'История',
+    }
+    if section not in sections:
+        raise PermissionDenied
     residential_complex = get_object_or_404(
         ResidentialComplex.objects.filter(slug=complex_slug),
+    )
+    profile_form = ResidentialComplexProfileForm(
+        request.POST or None,
+        instance=residential_complex,
+        prefix='profile',
+    )
+    team_form = ComplexTeamMemberForm(
+        request.POST or None,
+        residential_complex=residential_complex,
+        prefix='team',
+    )
+    channel_form = IntakeChannelSetupForm(
+        request.POST or None,
+        residential_complex=residential_complex,
+        prefix='channel',
+    )
+    service_form = ComplexServiceSetupForm(
+        request.POST or None,
+        residential_complex=residential_complex,
+        prefix='service',
+    )
+    notification_form = NotificationRuleSetupForm(
+        request.POST or None,
+        residential_complex=residential_complex,
+        prefix='notification',
     )
     provider_form = ProviderLinkSetupForm(
         request.POST or None,
@@ -183,24 +238,92 @@ def implementation_complex(request, complex_slug):
     )
     if request.method == 'POST':
         action = request.POST.get('action')
+        if action == 'save_profile' and profile_form.is_valid():
+            residential_complex = profile_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.PROFILE,
+                'Обновлены реквизиты и контактные данные ЖК.',
+            )
+            messages.success(request, 'Карточка ЖК сохранена.')
+            return _redirect_to_implementation_section(residential_complex, 'profile')
+        if action == 'add_team_member' and team_form.is_valid():
+            membership = team_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.TEAM,
+                f'В команду добавлен {membership.user.get_full_name() or membership.user.username}.',
+            )
+            messages.success(request, 'Сотрудник добавлен в команду ЖК.')
+            return _redirect_to_implementation_section(residential_complex, 'team')
+        if action == 'save_channel' and channel_form.is_valid():
+            channel = channel_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.CHANNEL,
+                f'Настроен канал «{channel.get_channel_type_display()}».',
+            )
+            messages.success(request, 'Канал поступления заявок сохранён.')
+            return _redirect_to_implementation_section(residential_complex, 'channels')
+        if action == 'save_notification' and notification_form.is_valid():
+            rule = notification_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.CHANNEL,
+                f'Настроено уведомление «{rule.get_event_display()}».',
+            )
+            messages.success(request, 'Правило уведомлений сохранено.')
+            return _redirect_to_implementation_section(residential_complex, 'channels')
+        if action == 'save_service' and service_form.is_valid():
+            service = service_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.SERVICE,
+                f'Настроена услуга «{service.category.name}».',
+            )
+            messages.success(request, 'Параметры услуги сохранены.')
+            return _redirect_to_implementation_section(residential_complex, 'services')
         if action == 'connect_provider' and provider_form.is_valid():
-            provider_form.save()
+            link = provider_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.PROVIDER,
+                f'Подключён поставщик «{link.provider.name}».',
+            )
             messages.success(request, 'Поставщик подключён к ЖК.')
-            return redirect(
-                'dashboard:implementation-complex',
-                complex_slug=residential_complex.slug,
-            )
+            return _redirect_to_implementation_section(residential_complex, 'providers')
         if action == 'save_routing' and routing_form.is_valid():
-            routing_form.save()
-            messages.success(request, 'Правило маршрутизации сохранено.')
-            return redirect(
-                'dashboard:implementation-complex',
-                complex_slug=residential_complex.slug,
+            rule = routing_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.ROUTING,
+                f'Сохранён маршрут для услуги «{rule.category.name}».',
             )
+            messages.success(request, 'Правило маршрутизации сохранено.')
+            return _redirect_to_implementation_section(residential_complex, 'routing')
+        if action == 'run_test':
+            test_run = run_implementation_test(residential_complex, request.user)
+            if test_run.is_successful:
+                messages.success(request, 'Тест пройден: маршруты работают ожидаемо.')
+            else:
+                messages.error(request, 'Тест не пройден. Проверьте список результатов.')
+            return _redirect_to_implementation_section(residential_complex, 'launch')
+        if action == 'launch_complex':
+            launched, _ = launch_complex(residential_complex, request.user)
+            if launched:
+                messages.success(request, 'ЖК запущен и переведён в рабочий режим.')
+            else:
+                messages.error(request, 'До запуска нужно закрыть обязательные пункты.')
+            return _redirect_to_implementation_section(residential_complex, 'launch')
+
+    readiness = build_readiness(residential_complex)
 
     context = {
         **_base_context(request),
         'complex': residential_complex,
+        'sections': sections,
+        'active_section': section,
+        'readiness': readiness,
         'provider_links': residential_complex.provider_links.select_related(
             'provider',
         ).prefetch_related('service_categories'),
@@ -209,10 +332,37 @@ def implementation_complex(request, complex_slug):
             'provider',
         ),
         'memberships': residential_complex.memberships.select_related('user'),
+        'channels': residential_complex.intake_channels.all(),
+        'notification_rules': residential_complex.notification_rules.all(),
+        'service_settings': residential_complex.service_settings.select_related('category'),
+        'latest_test': residential_complex.implementation_test_runs.first(),
+        'events': residential_complex.configuration_events.select_related('actor')[:100],
+        'profile_form': profile_form,
+        'team_form': team_form,
+        'channel_form': channel_form,
+        'notification_form': notification_form,
+        'service_form': service_form,
         'provider_form': provider_form,
         'routing_form': routing_form,
     }
     return render(request, 'dashboard/implementation_complex.html', context)
+
+
+def _record_configuration_event(residential_complex, actor, event_type, description):
+    ComplexConfigurationEvent.objects.create(
+        residential_complex=residential_complex,
+        actor=actor,
+        event_type=event_type,
+        description=description,
+    )
+
+
+def _redirect_to_implementation_section(residential_complex, section):
+    return redirect(
+        'dashboard:implementation-complex-section',
+        complex_slug=residential_complex.slug,
+        section=section,
+    )
 
 
 @internal_user_required

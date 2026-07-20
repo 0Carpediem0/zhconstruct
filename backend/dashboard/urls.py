@@ -30,6 +30,11 @@ urlpatterns = [
         name='implementation-complex',
     ),
     path(
+        'implementation/complexes/<slug:complex_slug>/<str:section>/',
+        views.implementation_complex,
+        name='implementation-complex-section',
+    ),
+    path(
         'complexes/<slug:complex_slug>/',
         views.home,
         name='complex-home',

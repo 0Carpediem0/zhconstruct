@@ -1,7 +1,11 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from complexes.models import ResidentialComplexProvider, ServiceRoutingRule
+from complexes.models import (
+    ResidentialComplexProvider,
+    ResidentialComplexService,
+    ServiceRoutingRule,
+)
 
 from .models import Ticket
 
@@ -14,6 +18,18 @@ def apply_initial_routing(ticket, *, changed_by=None):
     единственного доступного поставщика либо единственного предпочтительного.
     Неоднозначная конфигурация безопасно оставляет заявку диспетчеру ЖК.
     """
+
+    service_setting = ResidentialComplexService.objects.filter(
+        residential_complex_id=ticket.residential_complex_id,
+        category_id=ticket.category_id,
+    ).first()
+    # Старые ЖК без отдельной настройки услуги продолжают работать как раньше.
+    # Если настройка уже создана, она становится главным выключателем автоматики.
+    if service_setting and (
+        not service_setting.is_active
+        or not service_setting.auto_assignment_enabled
+    ):
+        return ticket
 
     rule = (
         ServiceRoutingRule.objects.select_related('provider')
@@ -40,6 +56,7 @@ def apply_initial_routing(ticket, *, changed_by=None):
                 provider__services__is_active=True,
                 provider__is_active=True,
                 is_active=True,
+                auto_assignment_enabled=True,
             )
             .select_related('provider')
             .distinct()

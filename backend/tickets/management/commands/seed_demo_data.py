@@ -4,8 +4,11 @@ from django.db import transaction
 
 from complexes.models import (
     ResidentialComplex,
+    ResidentialComplexIntakeChannel,
     ResidentialComplexMembership,
+    ResidentialComplexNotificationRule,
     ResidentialComplexProvider,
+    ResidentialComplexService,
     ServiceRoutingRule,
 )
 from providers.models import (
@@ -47,12 +50,16 @@ class Command(BaseCommand):
         provider_manager, _ = user_model.objects.get_or_create(
             username='demo-provider-manager',
         )
+        complex_manager, _ = user_model.objects.get_or_create(
+            username='demo-complex-manager',
+        )
         demo_users = (
             (dispatcher, 'Мария', 'Диспетчерова'),
             (north_dispatcher, 'Ольга', 'Северова'),
             (implementer, 'Виктор', 'Внедренец'),
             (employee, 'Алексей', 'Мастер'),
             (provider_manager, 'Игорь', 'Руководитель'),
+            (complex_manager, 'Анна', 'Управляющая'),
         )
         for user, first_name, last_name in demo_users:
             user.first_name = first_name
@@ -70,6 +77,12 @@ class Command(BaseCommand):
                 'address': 'г. Екатеринбург, ул. Демонстрационная, д. 1',
             },
         )
+        residential_complex.management_company = 'ТСЖ «Солнечный дом»'
+        residential_complex.timezone = 'Asia/Yekaterinburg'
+        residential_complex.contact_name = 'Анна Управляющая'
+        residential_complex.contact_email = 'manager@sunny.local'
+        residential_complex.contact_phone = '+7 900 100-20-30'
+        residential_complex.save()
         north_complex, _ = ResidentialComplex.objects.get_or_create(
             slug='northern-demo',
             defaults={
@@ -164,6 +177,69 @@ class Command(BaseCommand):
                 'is_active': True,
             },
         )
+        ResidentialComplexMembership.objects.update_or_create(
+            user=complex_manager,
+            residential_complex=residential_complex,
+            defaults={
+                'role': ResidentialComplexMembership.Role.MANAGER,
+                'is_active': True,
+            },
+        )
+        ResidentialComplexIntakeChannel.objects.update_or_create(
+            residential_complex=residential_complex,
+            channel_type=ResidentialComplexIntakeChannel.Type.MANUAL,
+            defaults={
+                'description': 'Заявки регистрирует диспетчер ЖК.',
+                'is_enabled': True,
+                'is_verified': True,
+            },
+        )
+        ResidentialComplexIntakeChannel.objects.update_or_create(
+            residential_complex=residential_complex,
+            channel_type=ResidentialComplexIntakeChannel.Type.AI,
+            defaults={
+                'description': 'Подготовлен канал обработанных ИИ-заявок.',
+                'is_enabled': True,
+                'is_verified': False,
+            },
+        )
+        for event, recipient in (
+            (
+                ResidentialComplexNotificationRule.Event.UNASSIGNED,
+                ResidentialComplexNotificationRule.Recipient.DISPATCHERS,
+            ),
+            (
+                ResidentialComplexNotificationRule.Event.OVERDUE,
+                ResidentialComplexNotificationRule.Recipient.MANAGERS,
+            ),
+            (
+                ResidentialComplexNotificationRule.Event.COMPLETED,
+                ResidentialComplexNotificationRule.Recipient.MANAGERS,
+            ),
+        ):
+            ResidentialComplexNotificationRule.objects.update_or_create(
+                residential_complex=residential_complex,
+                event=event,
+                recipient=recipient,
+                defaults={'is_enabled': True},
+            )
+        for service_category, priority, response_minutes in (
+            (category, ResidentialComplexService.Priority.NORMAL, 240),
+            (electricity_category, ResidentialComplexService.Priority.HIGH, 60),
+            (plumbing_category, ResidentialComplexService.Priority.HIGH, 30),
+        ):
+            ResidentialComplexService.objects.update_or_create(
+                residential_complex=residential_complex,
+                category=service_category,
+                defaults={
+                    'default_priority': priority,
+                    'response_time_minutes': response_minutes,
+                    'working_hours': 'Круглосуточно',
+                    'auto_assignment_enabled': True,
+                    'fallback': ResidentialComplexService.Fallback.DISPATCHER,
+                    'is_active': True,
+                },
+            )
         ResidentialComplexMembership.objects.update_or_create(
             user=north_dispatcher,
             residential_complex=north_complex,
@@ -349,5 +425,6 @@ class Command(BaseCommand):
         if options.get('demo_password'):
             self.stdout.write(
                 'Демо-логины: demo-dispatcher, demo-dispatcher-north, '
-                'demo-implementer, demo-provider-manager, demo-employee'
+                'demo-implementer, demo-complex-manager, '
+                'demo-provider-manager, demo-employee'
             )

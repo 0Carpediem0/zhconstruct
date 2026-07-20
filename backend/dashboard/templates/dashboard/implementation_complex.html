@@ -1,7 +1,7 @@
 {% extends 'dashboard/base.html' %}
 
-{% block title %}{{ complex.name }} — настройка{% endblock %}
-{% block eyebrow %}Настройка арендатора{% endblock %}
+{% block title %}{{ complex.name }} — внедрение{% endblock %}
+{% block eyebrow %}Мастер внедрения{% endblock %}
 {% block page_title %}{{ complex.name }}{% endblock %}
 {% block page_actions %}
     <a class="button button-ghost" href="{% url 'dashboard:home' %}">← Ко всем ЖК</a>
@@ -9,56 +9,113 @@
 {% endblock %}
 
 {% block content %}
-    <section class="welcome-card">
-        <div><span class="welcome-label">{{ complex.slug }}</span><h2>{{ complex.address }}</h2><p>Конфигурация поставщиков, маршрутов и команды ЖК.</p></div>
-        <div class="role-list"><span>{% if complex.is_active %}Подключён{% else %}Отключён{% endif %}</span></div>
+    <section class="implementation-hero">
+        <div>
+            <span class="welcome-label">{{ complex.slug }}</span>
+            <h2>{{ complex.address }}</h2>
+            <p>{{ complex.management_company|default:'Управляющая организация пока не указана' }}</p>
+        </div>
+        <div class="readiness-summary">
+            <div class="progress-ring" style="--progress: {{ readiness.percent }}"><strong>{{ readiness.percent }}%</strong></div>
+            <div><small>Готовность к запуску</small><strong>{{ complex.get_lifecycle_status_display }}</strong></div>
+        </div>
     </section>
 
-    <div class="ticket-layout">
-        <div>
-            <section class="panel">
-                <div class="panel-header"><div><span class="section-kicker">Договоры</span><h2>Подключённые поставщики</h2></div></div>
-                <div class="timeline">
-                    {% for link in provider_links %}
-                        <article class="timeline-card"><strong>{{ link.provider.name }}</strong><p>{% for category in link.service_categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}Категории не настроены{% endfor %}</p><small>{% if link.is_preferred %}Предпочтительный{% else %}Обычный маршрут{% endif %}</small></article>
-                    {% empty %}<div class="empty-state"><p>Поставщики ещё не подключены.</p></div>{% endfor %}
-                </div>
-            </section>
+    <nav class="implementation-tabs" aria-label="Этапы внедрения">
+        {% for key, label in sections.items %}
+            <a class="implementation-tab {% if active_section == key %}active{% endif %}"
+               href="{% url 'dashboard:implementation-complex-section' complex.slug key %}">{{ label }}</a>
+        {% endfor %}
+    </nav>
 
-            <section class="panel">
-                <div class="panel-header"><div><span class="section-kicker">Автоматизация</span><h2>Правила маршрутизации</h2></div></div>
-                <div class="timeline">
-                    {% for rule in routing_rules %}
-                        <article class="timeline-card"><strong>{{ rule.category.name }}</strong><p>{{ rule.get_mode_display }}{% if rule.provider %}: {{ rule.provider.name }}{% endif %}</p></article>
-                    {% empty %}<div class="empty-state"><p>Явных правил нет: система попробует выбрать единственного или предпочтительного поставщика.</p></div>{% endfor %}
+    {% if active_section == 'overview' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel">
+                <div class="panel-header"><div><span class="section-kicker">План подключения</span><h2>Что осталось до запуска</h2></div><span class="count-pill">{{ readiness.completed }} из {{ readiness.total }}</span></div>
+                <div class="checklist">
+                    {% for item in readiness.items %}
+                        <a href="{% url 'dashboard:implementation-complex-section' complex.slug item.section %}" class="checklist-item {% if item.complete %}complete{% endif %}">
+                            <span class="check-icon">{% if item.complete %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
+                            <span><strong>{{ item.label }}</strong><small>{% if item.complete %}Готово{% else %}Требует настройки{% endif %}</small></span><b>→</b>
+                        </a>
+                    {% endfor %}
                 </div>
             </section>
-
-            <section class="panel">
-                <div class="panel-header"><div><span class="section-kicker">Доступ</span><h2>Команда ЖК</h2></div></div>
-                <div class="timeline">
-                    {% for membership in memberships %}<article class="timeline-card"><strong>{{ membership.user.get_full_name|default:membership.user.username }}</strong><p>{{ membership.get_role_display }}</p></article>{% empty %}<div class="empty-state"><p>Сотрудники ещё не добавлены. Их можно назначить через административную панель.</p></div>{% endfor %}
-                </div>
-            </section>
+            <aside class="panel implementation-side-panel">
+                <span class="section-kicker">Следующий шаг</span>
+                <h2>{% if readiness.can_launch %}Всё готово к запуску{% else %}Продолжите настройку{% endif %}</h2>
+                <p>Данные сохраняются поэтапно. К ним можно вернуться в любой момент, не затрагивая рабочие заявки других ЖК.</p>
+                <a class="button button-primary" href="{% url 'dashboard:implementation-complex-section' complex.slug 'launch' %}">Перейти к проверке</a>
+            </aside>
         </div>
 
-        <aside class="ticket-actions-column">
-            <section class="panel action-panel">
-                <span class="section-kicker">Поставщик</span><h2>Подключить организацию</h2>
-                <form class="action-form" method="post">
-                    {% csrf_token %}<input type="hidden" name="action" value="connect_provider">
-                    {% for field in provider_form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% endfor %}
-                    <button class="button button-primary" type="submit">Сохранить поставщика</button>
-                </form>
+    {% elif active_section == 'profile' %}
+        <section class="panel settings-panel">
+            <div class="panel-header"><div><span class="section-kicker">Шаг 1</span><h2>Карточка жилого комплекса</h2></div></div>
+            <form class="settings-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_profile">
+                <div class="settings-form-grid">
+                    {% for field in profile_form %}<div class="form-group {% if field.errors %}has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+                </div>
+                <div class="settings-form-actions"><p>Эти данные используются внедренцами и службой поддержки.</p><button class="button button-primary" type="submit">Сохранить карточку</button></div>
+            </form>
+        </section>
+
+    {% elif active_section == 'team' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel">
+                <div class="panel-header"><div><span class="section-kicker">Доступы</span><h2>Команда ЖК</h2></div><span class="count-pill">{{ memberships|length }}</span></div>
+                <div class="record-list">{% for membership in memberships %}<article class="record-row"><span class="record-avatar">{{ membership.user.first_name|first|default:'С' }}{{ membership.user.last_name|first }}</span><div><strong>{{ membership.user.get_full_name|default:membership.user.username }}</strong><small>{{ membership.user.email }} · {{ membership.get_role_display }}</small></div><span class="state-dot {% if membership.is_active %}on{% endif %}">{% if membership.is_active %}Активен{% else %}Отключён{% endif %}</span></article>{% empty %}<div class="empty-state"><p>Команда ещё не добавлена.</p></div>{% endfor %}</div>
             </section>
-            <section class="panel action-panel">
-                <span class="section-kicker">Маршрут</span><h2>Настроить категорию</h2>
-                <form class="action-form" method="post">
-                    {% csrf_token %}<input type="hidden" name="action" value="save_routing">
-                    {% for field in routing_form %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% endfor %}
-                    <button class="button button-primary" type="submit">Сохранить маршрут</button>
-                </form>
+            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Новый доступ</span><h2>Добавить сотрудника</h2></div></div>
+                <form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="add_team_member">{% for field in team_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-primary" type="submit">Создать доступ</button></form>
+            </aside>
+        </div>
+
+    {% elif active_section == 'channels' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Входящий поток</span><h2>Каналы поступления заявок</h2></div></div>
+                <div class="record-list">{% for channel in channels %}<article class="record-row"><span class="channel-icon">↘</span><div><strong>{{ channel.get_channel_type_display }}</strong><small>{{ channel.description|default:'Без примечания' }}</small></div><span class="state-dot {% if channel.is_enabled and channel.is_verified %}on{% endif %}">{% if not channel.is_enabled %}Отключён{% elif channel.is_verified %}Проверен{% else %}Ждёт проверки{% endif %}</span></article>{% empty %}<div class="empty-state"><p>Ни один канал пока не настроен.</p></div>{% endfor %}</div>
             </section>
-        </aside>
-    </div>
+            <aside class="ticket-actions-column">
+                <section class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Подключение</span><h2>Настроить канал</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_channel">{% for field in channel_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-primary" type="submit">Сохранить канал</button></form></section>
+                <section class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Информирование</span><h2>Правило уведомлений</h2></div></div><div class="compact-rule-list">{% for rule in notification_rules %}<span>{% if rule.is_enabled %}✓{% else %}—{% endif %} {{ rule.get_event_display }} → {{ rule.get_recipient_display }}</span>{% empty %}<small>Правила пока не настроены.</small>{% endfor %}</div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_notification">{% for field in notification_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-secondary" type="submit">Сохранить уведомление</button></form></section>
+            </aside>
+        </div>
+
+    {% elif active_section == 'services' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Каталог ЖК</span><h2>Подключённые услуги</h2></div></div>
+                <div class="record-list">{% for setting in service_settings %}<article class="record-row"><span class="channel-icon">◇</span><div><strong>{{ setting.category.name }}</strong><small>{{ setting.working_hours }} · реакция {{ setting.response_time_minutes }} мин. · {{ setting.get_default_priority_display }}</small></div><span class="state-dot {% if setting.is_active %}on{% endif %}">{% if setting.auto_assignment_enabled %}Автоназначение{% else %}Через диспетчера{% endif %}</span></article>{% empty %}<div class="empty-state"><p>Услуги для этого ЖК ещё не выбраны.</p></div>{% endfor %}</div>
+            </section>
+            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Параметры</span><h2>Добавить или изменить</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_service">{% for field in service_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-primary" type="submit">Сохранить услугу</button></form></aside>
+        </div>
+
+    {% elif active_section == 'providers' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Договоры</span><h2>Поставщики ЖК</h2></div></div>
+                <div class="record-list">{% for link in provider_links %}<article class="provider-record"><div class="record-row"><span class="record-avatar provider-avatar">П</span><div><strong>{{ link.provider.name }}</strong><small>{% for category in link.service_categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}Категории не выбраны{% endfor %}</small></div><span class="state-dot {% if link.is_active %}on{% endif %}">{% if link.is_preferred %}Предпочтительный{% else %}Подключён{% endif %}</span></div><div class="provider-meta"><span>Договор: {{ link.contract_number|default:'не указан' }}</span><span>Контакт: {{ link.contact_name|default:link.provider.email|default:'не указан' }}</span></div></article>{% empty %}<div class="empty-state"><p>Поставщики ещё не подключены.</p></div>{% endfor %}</div>
+            </section>
+            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Подключение</span><h2>Добавить поставщика</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="connect_provider">{% for field in provider_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-primary" type="submit">Подключить поставщика</button></form></aside>
+        </div>
+
+    {% elif active_section == 'routing' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Логика назначения</span><h2>Маршруты заявок</h2></div></div>
+                <div class="record-list">{% for rule in routing_rules %}<article class="record-row"><span class="channel-icon">⇢</span><div><strong>{{ rule.category.name }}</strong><small>{{ rule.get_mode_display }}{% if rule.provider %} · {{ rule.provider.name }}{% endif %}</small></div><span class="state-dot on">Настроен</span></article>{% empty %}<div class="empty-state"><p>Явных правил нет. Система использует единственного или предпочтительного поставщика, иначе передаёт заявку диспетчеру.</p></div>{% endfor %}</div>
+            </section>
+            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Правило</span><h2>Настроить категорию</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_routing">{% for field in routing_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="button button-primary" type="submit">Сохранить маршрут</button></form></aside>
+        </div>
+
+    {% elif active_section == 'launch' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Без настоящих заявок</span><h2>Тестовый прогон</h2></div></div>
+                {% if latest_test %}<div class="test-results"><div class="test-summary {% if latest_test.is_successful %}success{% else %}failed{% endif %}"><strong>{% if latest_test.is_successful %}Проверка пройдена{% else %}Найдены проблемы{% endif %}</strong><small>{{ latest_test.created_at|date:'d.m.Y H:i' }}</small></div>{% for result in latest_test.results %}<article><span>{% if result.success %}✓{% else %}!{% endif %}</span><div><strong>{{ result.category }} → {{ result.destination }}</strong><small>{{ result.explanation }}</small></div></article>{% endfor %}</div>{% else %}<div class="empty-state"><p>Тест ещё не запускался. Мы проверим путь каждой услуги, не создавая реальные заявки.</p></div>{% endif %}
+                <form class="inline-action" method="post">{% csrf_token %}<input type="hidden" name="action" value="run_test"><button class="button button-secondary" type="submit">Запустить проверку маршрутов</button></form>
+            </section>
+            <aside class="panel launch-card"><span class="section-kicker">Рабочий режим</span><h2>{% if complex.lifecycle_status == 'active' %}ЖК уже запущен{% else %}Запустить ЖК{% endif %}</h2><p>После запуска операционная команда сможет работать в своём отдельном кабинете. Внедренец по-прежнему не увидит заявки жителей.</p><div class="mini-progress"><span style="width: {{ readiness.percent }}%"></span></div><small>{{ readiness.completed }} из {{ readiness.total }} обязательных пунктов</small><form method="post">{% csrf_token %}<input type="hidden" name="action" value="launch_complex"><button class="button button-primary" type="submit" {% if not readiness.can_launch or complex.lifecycle_status == 'active' %}disabled{% endif %}>{% if complex.lifecycle_status == 'active' %}Рабочий режим включён{% else %}Перевести в рабочий режим{% endif %}</button></form></aside>
+        </div>
+
+    {% elif active_section == 'audit' %}
+        <section class="panel settings-panel"><div class="panel-header"><div><span class="section-kicker">Аудит</span><h2>История настройки</h2></div><span class="count-pill">Последние 100</span></div><div class="audit-list">{% for event in events %}<article><span class="audit-dot"></span><div><strong>{{ event.description }}</strong><small>{{ event.get_event_type_display }} · {{ event.actor.get_full_name|default:event.actor.username|default:'Система' }}</small></div><time>{{ event.created_at|date:'d.m.Y H:i' }}</time></article>{% empty %}<div class="empty-state"><p>История пока пуста.</p></div>{% endfor %}</div></section>
+    {% endif %}
 {% endblock %}

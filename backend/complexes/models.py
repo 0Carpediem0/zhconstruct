@@ -10,9 +10,25 @@ class ResidentialComplex(models.Model):
     ограничиваем видимость заявок, поставщиков и сотрудников.
     """
 
+    class LifecycleStatus(models.TextChoices):
+        SETUP = 'setup', 'Настраивается'
+        ACTIVE = 'active', 'Работает'
+        SUSPENDED = 'suspended', 'Приостановлен'
+
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=270, unique=True)
     address = models.TextField()
+    management_company = models.CharField(max_length=255, blank=True)
+    timezone = models.CharField(max_length=64, default='Asia/Yekaterinburg')
+    contact_name = models.CharField(max_length=255, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=32, blank=True)
+    lifecycle_status = models.CharField(
+        max_length=16,
+        choices=LifecycleStatus.choices,
+        default=LifecycleStatus.SETUP,
+    )
+    launched_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     providers = models.ManyToManyField(
         'providers.Provider',
@@ -63,6 +79,12 @@ class ResidentialComplexProvider(models.Model):
     )
     source = models.CharField(max_length=20, choices=Source.choices)
     is_preferred = models.BooleanField(default=False)
+    auto_assignment_enabled = models.BooleanField(default=True)
+    contract_number = models.CharField(max_length=100, blank=True)
+    contract_valid_until = models.DateField(null=True, blank=True)
+    contact_name = models.CharField(max_length=255, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=32, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -199,3 +221,183 @@ class ResidentialComplexMembership(models.Model):
             f'{self.user} — {self.residential_complex} '
             f'({self.get_role_display()})'
         )
+
+
+class ResidentialComplexIntakeChannel(models.Model):
+    """Канал, через который обработанные обращения попадают в конкретный ЖК."""
+
+    class Type(models.TextChoices):
+        MANUAL = 'manual', 'Ручная регистрация'
+        API = 'api', 'API'
+        AI = 'ai', 'ИИ-обработка обращений'
+        ONE_C = '1c', '1С:ЖКХ'
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='intake_channels',
+    )
+    channel_type = models.CharField(max_length=16, choices=Type.choices)
+    description = models.TextField(blank=True)
+    is_enabled = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('channel_type',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'channel_type'),
+                name='unique_intake_channel_per_complex',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.residential_complex}: {self.get_channel_type_display()}'
+
+
+class ResidentialComplexService(models.Model):
+    """Параметры оказания одной услуги внутри конкретного ЖК."""
+
+    class Priority(models.TextChoices):
+        LOW = 'low', 'Низкий'
+        NORMAL = 'normal', 'Обычный'
+        HIGH = 'high', 'Высокий'
+        URGENT = 'urgent', 'Срочный'
+
+    class Fallback(models.TextChoices):
+        DISPATCHER = 'dispatcher', 'Передать диспетчеру'
+        HOLD = 'hold', 'Оставить без назначения'
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='service_settings',
+    )
+    category = models.ForeignKey(
+        'providers.ServiceCategory',
+        on_delete=models.PROTECT,
+        related_name='complex_settings',
+    )
+    default_priority = models.CharField(
+        max_length=16,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+    )
+    response_time_minutes = models.PositiveIntegerField(default=1440)
+    working_hours = models.CharField(max_length=100, default='Круглосуточно')
+    auto_assignment_enabled = models.BooleanField(default=True)
+    fallback = models.CharField(
+        max_length=16,
+        choices=Fallback.choices,
+        default=Fallback.DISPATCHER,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('category__name',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'category'),
+                name='unique_service_setting_per_complex',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.residential_complex}: {self.category}'
+
+
+class ResidentialComplexNotificationRule(models.Model):
+    """Кому сообщать о ключевых событиях операционного процесса ЖК."""
+
+    class Event(models.TextChoices):
+        NEW = 'new', 'Поступила новая заявка'
+        UNASSIGNED = 'unassigned', 'Заявка осталась без назначения'
+        OVERDUE = 'overdue', 'Нарушен срок реакции'
+        COMPLETED = 'completed', 'Заявка завершена'
+
+    class Recipient(models.TextChoices):
+        DISPATCHERS = 'dispatchers', 'Диспетчеры ЖК'
+        MANAGERS = 'managers', 'Руководители ЖК'
+        PROVIDER_MANAGERS = 'provider_managers', 'Руководитель поставщика'
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='notification_rules',
+    )
+    event = models.CharField(max_length=24, choices=Event.choices)
+    recipient = models.CharField(max_length=24, choices=Recipient.choices)
+    is_enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('event', 'recipient')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'event', 'recipient'),
+                name='unique_notification_rule_per_complex',
+            ),
+        ]
+
+
+class ImplementationTestRun(models.Model):
+    """Результат безопасной проверки маршрутов перед рабочим запуском."""
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='implementation_test_runs',
+    )
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='implementation_test_runs',
+    )
+    is_successful = models.BooleanField(default=False)
+    results = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
+class ComplexConfigurationEvent(models.Model):
+    """Журнал действий внедренцев, необходимый для поддержки и аудита."""
+
+    class Type(models.TextChoices):
+        PROFILE = 'profile', 'Данные ЖК'
+        TEAM = 'team', 'Команда'
+        CHANNEL = 'channel', 'Канал заявок'
+        SERVICE = 'service', 'Услуга'
+        PROVIDER = 'provider', 'Поставщик'
+        ROUTING = 'routing', 'Маршрутизация'
+        TEST = 'test', 'Тестовый запуск'
+        LAUNCH = 'launch', 'Запуск ЖК'
+
+    residential_complex = models.ForeignKey(
+        ResidentialComplex,
+        on_delete=models.CASCADE,
+        related_name='configuration_events',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='complex_configuration_events',
+    )
+    event_type = models.CharField(max_length=20, choices=Type.choices)
+    description = models.CharField(max_length=500)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
