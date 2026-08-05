@@ -272,23 +272,76 @@ class ProviderLinkSetupForm(forms.Form):
         return cleaned_data
 
     def save(self):
-        link, _ = ResidentialComplexProvider.objects.update_or_create(
+        data = self.cleaned_data
+        link, created = ResidentialComplexProvider.objects.get_or_create(
             residential_complex=self.residential_complex,
-            provider=self.cleaned_data['provider'],
+            provider=data['provider'],
             defaults={
                 'source': ResidentialComplexProvider.Source.PLATFORM,
-                'is_preferred': self.cleaned_data['is_preferred'],
-                'auto_assignment_enabled': self.cleaned_data['auto_assignment_enabled'],
-                'contract_number': self.cleaned_data['contract_number'],
-                'contract_valid_until': self.cleaned_data['contract_valid_until'],
-                'contact_name': self.cleaned_data['contact_name'],
-                'contact_email': self.cleaned_data['contact_email'],
-                'contact_phone': self.cleaned_data['contact_phone'],
+                'is_preferred': data['is_preferred'],
+                'auto_assignment_enabled': data['auto_assignment_enabled'],
+                'contract_number': data['contract_number'],
+                'contract_valid_until': data['contract_valid_until'],
+                'contact_name': data['contact_name'],
+                'contact_email': data['contact_email'],
+                'contact_phone': data['contact_phone'],
                 'is_active': True,
             },
         )
-        link.service_categories.set(self.cleaned_data['service_categories'])
+        if not created:
+            # Повторное подключение в этой форме означает расширение договора.
+            # Пустые поля не должны стирать уже сохранённые реквизиты поставщика.
+            link.is_active = True
+            link.is_preferred = link.is_preferred or data['is_preferred']
+            link.auto_assignment_enabled = (
+                link.auto_assignment_enabled or data['auto_assignment_enabled']
+            )
+            for field_name in (
+                'contract_number', 'contract_valid_until', 'contact_name',
+                'contact_email', 'contact_phone',
+            ):
+                value = data[field_name]
+                if value:
+                    setattr(link, field_name, value)
+            link.save()
+
+        # Категории добавляются к договору, а не заменяют ранее выбранные.
+        link.service_categories.add(*data['service_categories'])
         return link
+
+
+class ProviderContractEditForm(forms.ModelForm):
+    """Настройки договора, которыми ЖК управляет без изменения общего каталога."""
+
+    class Meta:
+        model = ResidentialComplexProvider
+        fields = (
+            'service_categories', 'is_preferred', 'auto_assignment_enabled',
+            'contract_number', 'contract_valid_until', 'contact_name',
+            'contact_email', 'contact_phone', 'is_active',
+        )
+        labels = {
+            'service_categories': 'Услуги по договору',
+            'is_preferred': 'Предпочтительный для автоназначения',
+            'auto_assignment_enabled': 'Разрешить автоназначение',
+            'contract_number': 'Номер договора',
+            'contract_valid_until': 'Договор действует до',
+            'contact_name': 'Контактное лицо',
+            'contact_email': 'Рабочая почта',
+            'contact_phone': 'Телефон',
+            'is_active': 'Поставщик доступен для ЖК',
+        }
+        widgets = {
+            'contract_valid_until': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['service_categories'].queryset = ServiceCategory.objects.filter(
+            provider_services__provider=self.instance.provider,
+            provider_services__is_active=True,
+            is_active=True,
+        ).distinct()
 
 
 class RoutingRuleSetupForm(forms.Form):

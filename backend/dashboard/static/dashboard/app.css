@@ -395,6 +395,8 @@ input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; }
 .action-form { display: grid; gap: 10px; margin: 0 20px; padding: 18px 0; border-top: 1px solid var(--slate-100); }
 .action-form:first-of-type { border-top: 0; padding-top: 4px; }
 .action-form label { margin: 0; font-size: 11px; }
+.form-submit-group { display: grid; gap: 8px; margin-top: 4px; }
+.form-submit-group .button { width: 100%; }
 .info-panel { padding: 21px; }
 .info-panel h3 { margin: 0 0 15px; font-size: 14px; }
 .info-panel dl { display: grid; gap: 11px; margin: 0; }
@@ -425,6 +427,10 @@ input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; }
 .directory-tags { display: flex; grid-column: 1 / -1; flex-wrap: wrap; align-self: end; gap: 6px; }
 .directory-tags span { padding: 5px 8px; color: #33547e; border-radius: 999px; background: #edf5ff; font-size: 9px; font-weight: 700; }
 .directory-tags .muted-tag { color: #7b8798; background: var(--slate-100); }
+.directory-card-actions { display: flex; grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--slate-100); }
+.form-card > .form-group:has(> input[type="checkbox"]) { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 38px; padding: 9px 11px; border: 1px solid var(--slate-200); border-radius: 10px; background: #f8fafc; }
+.form-card > .form-group:has(> input[type="checkbox"]) label { margin: 0; }
+.provider-scope-note { margin: 22px 0 0; padding-top: 18px; color: #b9cbe1; border-top: 1px solid rgba(255,255,255,.12); font-size: 10px; line-height: 1.6; }
 .implementation-card {
     min-height: 205px;
     align-content: start;

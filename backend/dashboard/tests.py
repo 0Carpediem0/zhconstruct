@@ -285,6 +285,74 @@ class DashboardScenarioTests(TestCase):
         self.assertContains(response, self.complex.name)
         self.assertNotContains(response, unrelated_complex.name)
 
+    def test_dispatcher_can_edit_provider_contract_for_own_complex(self):
+        electricity = ServiceCategory.objects.create(
+            name='Электрика для договора',
+            slug='contract-electricity',
+        )
+        ProviderService.objects.create(
+            provider=self.provider,
+            category=electricity,
+        )
+        self.client.force_login(self.dispatcher)
+        edit_url = reverse(
+            'dashboard:complex-provider-edit',
+            args=[self.complex.slug, self.provider_link.pk],
+        )
+
+        response = self.client.get(edit_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.provider.name)
+
+        response = self.client.post(
+            edit_url,
+            {
+                'service_categories': [self.category.pk, electricity.pk],
+                'is_preferred': 'on',
+                'auto_assignment_enabled': 'on',
+                'contract_number': 'ДС-2026-15',
+                'contact_name': 'Иван Подрядчик',
+                'contact_email': 'contractor@example.test',
+                'contact_phone': '+7 900 111-22-33',
+                'is_active': 'on',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('dashboard:complex-directories', args=[self.complex.slug]),
+        )
+        self.provider_link.refresh_from_db()
+        self.assertEqual(
+            set(self.provider_link.service_categories.values_list('pk', flat=True)),
+            {self.category.pk, electricity.pk},
+        )
+        self.assertEqual(self.provider_link.contract_number, 'ДС-2026-15')
+        self.assertEqual(self.provider_link.contact_name, 'Иван Подрядчик')
+        self.assertTrue(self.provider_link.is_preferred)
+
+    def test_dispatcher_cannot_edit_provider_contract_of_another_complex(self):
+        other_complex = ResidentialComplex.objects.create(
+            name='ЖК Чужой договор',
+            slug='foreign-contract',
+            address='Другой адрес',
+        )
+        foreign_link = ResidentialComplexProvider.objects.create(
+            residential_complex=other_complex,
+            provider=self.provider,
+            source=ResidentialComplexProvider.Source.PLATFORM,
+        )
+        self.client.force_login(self.dispatcher)
+
+        response = self.client.get(
+            reverse(
+                'dashboard:complex-provider-edit',
+                args=[self.complex.slug, foreign_link.pk],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
     def test_provider_employee_cannot_open_manual_registration(self):
         self.client.force_login(self.employee)
 

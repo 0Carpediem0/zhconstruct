@@ -47,18 +47,29 @@
     <div class="directory-section">
         <div class="section-heading"><div><span class="section-kicker">Организации</span><h2>Поставщики</h2></div><span class="count-pill">{{ providers|length }}</span></div>
         <div class="directory-grid">
-            {% for provider in providers %}
+            {% if workspace_complex %}
+            {% for link in provider_links %}
                 <article class="directory-card">
                     <span class="directory-icon provider-icon">П</span>
                     <div>
-                        <h3>{{ provider.name }}</h3>
-                        <p>{{ provider.email|default:'Контакт не указан' }}{% if provider.phone %} · {{ provider.phone }}{% endif %}</p>
+                        <h3>{{ link.provider.name }}</h3>
+                        <p>{{ link.contact_email|default:link.provider.email|default:'Контакт не указан' }}{% if link.contact_phone or link.provider.phone %} · {{ link.contact_phone|default:link.provider.phone }}{% endif %}</p>
                     </div>
                     <div class="directory-tags">
-                        {% for category in provider.service_categories.all %}<span>{{ category.name }}</span>{% empty %}<span class="muted-tag">Услуги не настроены</span>{% endfor %}
+                        {% for category in link.service_categories.all %}<span>{{ category.name }}</span>{% empty %}<span class="muted-tag">Услуги по договору не настроены</span>{% endfor %}
                     </div>
+                    <div class="directory-card-actions"><a class="card-action card-action-primary" href="{% url 'dashboard:complex-provider-edit' workspace_complex.slug link.pk %}">Настроить поставщика <span>→</span></a></div>
                 </article>
-            {% empty %}<div class="empty-state"><p>Нет доступных поставщиков.</p></div>{% endfor %}
+            {% empty %}<div class="empty-state"><p>К ЖК пока не подключены поставщики.</p></div>{% endfor %}
+            {% else %}
+                {% for provider in providers %}
+                    <article class="directory-card">
+                        <span class="directory-icon provider-icon">П</span>
+                        <div><h3>{{ provider.name }}</h3><p>{{ provider.email|default:'Контакт не указан' }}{% if provider.phone %} · {{ provider.phone }}{% endif %}</p></div>
+                        <div class="directory-tags">{% for category in provider.service_categories.all %}<span>{{ category.name }}</span>{% empty %}<span class="muted-tag">Услуги не настроены</span>{% endfor %}</div>
+                    </article>
+                {% empty %}<div class="empty-state"><p>Нет доступных поставщиков.</p></div>{% endfor %}
+            {% endif %}
         </div>
     </div>
 

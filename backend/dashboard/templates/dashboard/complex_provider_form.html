@@ -1,0 +1,46 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{{ provider_link.provider.name }} — настройки{% endblock %}
+{% block eyebrow %}Настройки ЖК{% endblock %}
+{% block page_title %}{{ provider_link.provider.name }}{% endblock %}
+{% block page_actions %}
+    <a class="button button-ghost" href="{% url 'dashboard:complex-directories' complex.slug %}">← К настройкам ЖК</a>
+{% endblock %}
+
+{% block content %}
+    <div class="form-layout">
+        <form class="panel form-card" method="post">
+            {% csrf_token %}
+            <div class="panel-header">
+                <div>
+                    <span class="section-kicker">Договор с поставщиком</span>
+                    <h2>Условия работы в {{ complex.name }}</h2>
+                </div>
+            </div>
+            {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+            {% for field in form %}
+                <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                    {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+                </div>
+            {% endfor %}
+            <div class="form-actions">
+                <button class="button button-primary" type="submit">Сохранить настройки</button>
+                <a class="button button-ghost" href="{% url 'dashboard:complex-directories' complex.slug %}">Отмена</a>
+            </div>
+        </form>
+
+        <aside class="form-aside">
+            <span class="aside-number">ЖК</span>
+            <h3>Что можно изменить</h3>
+            <ol>
+                <li>Услуги, разрешённые договором именно для этого ЖК.</li>
+                <li>Контакты и реквизиты договора с поставщиком.</li>
+                <li>Участие поставщика в автоматическом назначении заявок.</li>
+            </ol>
+            <p class="provider-scope-note">Название и общие реквизиты организации относятся ко всему каталогу платформы и здесь не изменяются.</p>
+        </aside>
+    </div>
+{% endblock %}

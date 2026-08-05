@@ -74,6 +74,11 @@ urlpatterns = [
         views.directories,
         name='complex-directories',
     ),
+    path(
+        'complexes/<slug:complex_slug>/providers/<int:link_pk>/edit/',
+        views.complex_provider_edit,
+        name='complex-provider-edit',
+    ),
     path('tickets/', views.ticket_list, name='ticket-list'),
     path('tickets/new/', views.ticket_create, name='ticket-create'),
     path('tickets/<int:pk>/', views.ticket_detail, name='ticket-detail'),

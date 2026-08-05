@@ -3,7 +3,7 @@
 {% block title %}Подключённые ЖК — ЖКонстракт{% endblock %}
 {% block eyebrow %}Панель конструктора{% endblock %}
 {% block page_title %}Подключённые жилые комплексы{% endblock %}
-{% block page_actions %}<a class="button button-primary" href="{% url 'dashboard:implementation-complex-create' %}">＋ Подключить ЖК</a>{% endblock %}
+{% block page_actions %}{% if request.user.platform_role == 'implementer' %}<a class="button button-primary" href="{% url 'dashboard:implementation-complex-create' %}">＋ Подключить ЖК</a>{% endif %}{% endblock %}
 
 {% block content %}
     <section class="welcome-card">

@@ -37,6 +37,7 @@ from .forms import (
     ComplexTeamMemberForm,
     IntakeChannelSetupForm,
     NotificationRuleSetupForm,
+    ProviderContractEditForm,
     ProviderLinkSetupForm,
     ResidentialComplexProfileForm,
     ResidentialComplexSetupForm,
@@ -158,9 +159,14 @@ def _require_platform_operator(user):
         raise PermissionDenied
 
 
+def _require_implementer(user):
+    if user.platform_role != user.PlatformRole.IMPLEMENTER:
+        raise PermissionDenied
+
+
 @internal_user_required
 def implementation_complex_create(request):
-    _require_platform_operator(request.user)
+    _require_implementer(request.user)
     form = ResidentialComplexSetupForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         residential_complex = form.save()
@@ -246,7 +252,7 @@ def implementation_complex(request, complex_slug, section='overview'):
                 'Обновлены реквизиты и контактные данные ЖК.',
             )
             messages.success(request, 'Карточка ЖК сохранена.')
-            return _redirect_to_implementation_section(residential_complex, 'profile')
+            return _redirect_to_implementation_section(residential_complex, 'team')
         if action == 'add_team_member' and team_form.is_valid():
             membership = team_form.save()
             _record_configuration_event(
@@ -255,7 +261,9 @@ def implementation_complex(request, complex_slug, section='overview'):
                 f'В команду добавлен {membership.user.get_full_name() or membership.user.username}.',
             )
             messages.success(request, 'Сотрудник добавлен в команду ЖК.')
-            return _redirect_to_implementation_section(residential_complex, 'team')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='team', next_section='channels',
+            )
         if action == 'save_channel' and channel_form.is_valid():
             channel = channel_form.save()
             _record_configuration_event(
@@ -264,7 +272,9 @@ def implementation_complex(request, complex_slug, section='overview'):
                 f'Настроен канал «{channel.get_channel_type_display()}».',
             )
             messages.success(request, 'Канал поступления заявок сохранён.')
-            return _redirect_to_implementation_section(residential_complex, 'channels')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='channels', next_section='services',
+            )
         if action == 'save_notification' and notification_form.is_valid():
             rule = notification_form.save()
             _record_configuration_event(
@@ -282,7 +292,9 @@ def implementation_complex(request, complex_slug, section='overview'):
                 f'Настроена услуга «{service.category.name}».',
             )
             messages.success(request, 'Параметры услуги сохранены.')
-            return _redirect_to_implementation_section(residential_complex, 'services')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='services', next_section='providers',
+            )
         if action == 'connect_provider' and provider_form.is_valid():
             link = provider_form.save()
             _record_configuration_event(
@@ -291,7 +303,9 @@ def implementation_complex(request, complex_slug, section='overview'):
                 f'Подключён поставщик «{link.provider.name}».',
             )
             messages.success(request, 'Поставщик подключён к ЖК.')
-            return _redirect_to_implementation_section(residential_complex, 'providers')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='providers', next_section='routing',
+            )
         if action == 'save_routing' and routing_form.is_valid():
             rule = routing_form.save()
             _record_configuration_event(
@@ -300,7 +314,9 @@ def implementation_complex(request, complex_slug, section='overview'):
                 f'Сохранён маршрут для услуги «{rule.category.name}».',
             )
             messages.success(request, 'Правило маршрутизации сохранено.')
-            return _redirect_to_implementation_section(residential_complex, 'routing')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='routing', next_section='launch',
+            )
         if action == 'run_test':
             test_run = run_implementation_test(residential_complex, request.user)
             if test_run.is_successful:
@@ -363,6 +379,19 @@ def _redirect_to_implementation_section(residential_complex, section):
         complex_slug=residential_complex.slug,
         section=section,
     )
+
+
+def _redirect_after_wizard_save(
+    request,
+    residential_complex,
+    *,
+    current,
+    next_section,
+):
+    """Оставляет внедренца добавлять элементы или переводит к следующему шагу."""
+
+    section = next_section if request.POST.get('continue') == '1' else current
+    return _redirect_to_implementation_section(residential_complex, section)
 
 
 @internal_user_required
@@ -701,6 +730,52 @@ def directories(request, complex_slug=None):
             if workspace_complex
             else visible_providers_for(request.user)
         ),
+        'provider_links': (
+            ResidentialComplexProvider.objects.filter(
+                residential_complex=workspace_complex,
+            ).select_related('provider').prefetch_related('service_categories')
+            if workspace_complex
+            else ResidentialComplexProvider.objects.none()
+        ),
         'categories': ServiceCategory.objects.filter(is_active=True),
     }
     return render(request, 'dashboard/directories.html', context)
+
+
+@internal_user_required
+def complex_provider_edit(request, complex_slug, link_pk):
+    """Позволяет ЖК менять только собственный договор с поставщиком."""
+
+    workspace_complex = _workspace_complex_for(request.user, complex_slug)
+    link = get_object_or_404(
+        ResidentialComplexProvider.objects.select_related(
+            'provider',
+            'residential_complex',
+        ),
+        pk=link_pk,
+        residential_complex=workspace_complex,
+    )
+    form = ProviderContractEditForm(request.POST or None, instance=link)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        _record_configuration_event(
+            workspace_complex,
+            request.user,
+            ComplexConfigurationEvent.Type.PROVIDER,
+            f'ЖК обновил условия работы с поставщиком «{link.provider.name}».',
+        )
+        messages.success(request, 'Настройки поставщика сохранены.')
+        return redirect(
+            'dashboard:complex-directories',
+            complex_slug=workspace_complex.slug,
+        )
+    return render(
+        request,
+        'dashboard/complex_provider_form.html',
+        {
+            **_base_context(request, workspace_complex),
+            'complex': workspace_complex,
+            'provider_link': link,
+            'form': form,
+        },
+    )
