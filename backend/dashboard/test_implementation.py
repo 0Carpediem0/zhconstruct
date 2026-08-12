@@ -9,8 +9,14 @@ from complexes.models import (
     ResidentialComplexNotificationRule,
     ResidentialComplexProvider,
     ResidentialComplexService,
+    ServiceRoutingRule,
 )
-from providers.models import Provider, ProviderService, ServiceCategory
+from providers.models import (
+    Provider,
+    ProviderService,
+    ServiceCategory,
+    ServiceOffering,
+)
 
 
 class ImplementationWizardTests(TestCase):
@@ -51,7 +57,7 @@ class ImplementationWizardTests(TestCase):
     def test_all_wizard_sections_are_available_to_implementer(self):
         for section in (
             'overview', 'profile', 'team', 'channels', 'services',
-            'providers', 'routing', 'launch', 'audit',
+            'providers', 'routing', 'catalog', 'launch', 'audit',
         ):
             with self.subTest(section=section):
                 response = self.client.get(self.section_url(section))
@@ -234,3 +240,55 @@ class ImplementationWizardTests(TestCase):
             ResidentialComplex.LifecycleStatus.ACTIVE,
         )
         self.assertIsNotNone(self.complex.launched_at)
+
+    def test_implementer_can_publish_service_offering_after_direct_route(self):
+        provider = Provider.objects.create(
+            name='Чистый дом',
+            slug='clean-home-catalog-test',
+        )
+        ProviderService.objects.create(provider=provider, category=self.category)
+        ResidentialComplexService.objects.create(
+            residential_complex=self.complex,
+            category=self.category,
+        )
+        link = ResidentialComplexProvider.objects.create(
+            residential_complex=self.complex,
+            provider=provider,
+            source=ResidentialComplexProvider.Source.PLATFORM,
+        )
+        link.service_categories.add(self.category)
+        ServiceRoutingRule.objects.create(
+            residential_complex=self.complex,
+            category=self.category,
+            mode=ServiceRoutingRule.Mode.DIRECT,
+            provider=provider,
+        )
+
+        response = self.client.post(
+            self.section_url('catalog'),
+            {
+                'action': 'save_offering',
+                'continue': '1',
+                'offering-provider': provider.pk,
+                'offering-category': self.category.pk,
+                'offering-title': 'Поддерживающая уборка',
+                'offering-description': 'Уборка квартиры до 60 м².',
+                'offering-price': '3500.00',
+                'offering-duration_minutes': '120',
+                'offering-capacity_per_slot': '2',
+                'offering-available_weekdays': ['0', '1', '2', '3', '4'],
+                'offering-available_from': '08:00',
+                'offering-available_until': '20:00',
+                'offering-minimum_lead_hours': '12',
+                'offering-is_active': 'on',
+            },
+        )
+        self.assertRedirects(response, self.section_url('launch'))
+        offering = ServiceOffering.objects.get(
+            residential_complex=self.complex,
+            provider=provider,
+            category=self.category,
+        )
+        self.assertEqual(str(offering.price), '3500.00')
+        self.assertEqual(offering.capacity_per_slot, 2)
+        self.assertEqual(offering.available_weekdays, [0, 1, 2, 3, 4])

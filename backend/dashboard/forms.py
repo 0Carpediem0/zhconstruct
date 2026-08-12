@@ -13,7 +13,12 @@ from complexes.models import (
     ResidentialComplexService,
     ServiceRoutingRule,
 )
-from providers.models import Provider, ProviderService, ServiceCategory
+from providers.models import (
+    Provider,
+    ProviderService,
+    ServiceCategory,
+    ServiceOffering,
+)
 from tickets.models import Applicant, Ticket
 from tickets.permissions import (
     COMPLEX_STAFF_ROLES,
@@ -423,6 +428,106 @@ class RoutingRuleSetupForm(forms.Form):
             },
         )
         return rule
+
+
+class ServiceOfferingSetupForm(forms.ModelForm):
+    """Создаёт карточку услуги, которую увидит житель конкретного ЖК."""
+
+    WEEKDAYS = (
+        ('0', 'Понедельник'),
+        ('1', 'Вторник'),
+        ('2', 'Среда'),
+        ('3', 'Четверг'),
+        ('4', 'Пятница'),
+        ('5', 'Суббота'),
+        ('6', 'Воскресенье'),
+    )
+    available_weekdays = forms.MultipleChoiceField(
+        choices=WEEKDAYS,
+        label='Дни оказания услуги',
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = ServiceOffering
+        fields = (
+            'provider', 'category', 'title', 'description', 'price',
+            'duration_minutes', 'available_weekdays', 'available_from',
+            'available_until', 'capacity_per_slot', 'minimum_lead_hours', 'is_active',
+        )
+        labels = {
+            'provider': 'Поставщик',
+            'category': 'Категория',
+            'title': 'Название для жителя',
+            'description': 'Описание услуги',
+            'price': 'Стоимость, ₽',
+            'duration_minutes': 'Продолжительность, минут',
+            'capacity_per_slot': 'Заказов на одно время',
+            'available_from': 'Заказы с',
+            'available_until': 'Заказы до',
+            'minimum_lead_hours': 'За сколько часов можно заказать',
+            'is_active': 'Показывать жителям',
+        }
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 4}),
+            'available_from': forms.TimeInput(attrs={'type': 'time'}),
+            'available_until': forms.TimeInput(attrs={'type': 'time'}),
+        }
+
+    def __init__(self, *args, residential_complex, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.residential_complex = residential_complex
+        self.fields['provider'].queryset = Provider.objects.filter(
+            residential_complex_links__residential_complex=residential_complex,
+            residential_complex_links__is_active=True,
+            is_active=True,
+        ).distinct()
+        self.fields['category'].queryset = ServiceCategory.objects.filter(
+            complex_settings__residential_complex=residential_complex,
+            complex_settings__is_active=True,
+            is_active=True,
+        ).distinct()
+
+    def clean_available_weekdays(self):
+        return [int(value) for value in self.cleaned_data['available_weekdays']]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        required = (
+            'provider', 'category', 'price', 'duration_minutes',
+            'available_weekdays', 'available_from', 'available_until',
+        )
+        if all(cleaned_data.get(field) is not None for field in required):
+            candidate = ServiceOffering(
+                residential_complex=self.residential_complex,
+                **cleaned_data,
+            )
+            try:
+                candidate.full_clean(
+                    exclude=('id',),
+                    validate_unique=False,
+                    validate_constraints=False,
+                )
+            except ValidationError as error:
+                for field, errors in error.message_dict.items():
+                    target = field if field in self.fields else None
+                    for message in errors:
+                        self.add_error(target, message)
+        return cleaned_data
+
+    def save(self):
+        data = self.cleaned_data.copy()
+        provider = data.pop('provider')
+        category = data.pop('category')
+        offering, _ = ServiceOffering.objects.update_or_create(
+            residential_complex=self.residential_complex,
+            provider=provider,
+            category=category,
+            defaults=data,
+        )
+        offering.full_clean()
+        offering.save()
+        return offering
 
 
 class TicketWebCreateForm(forms.ModelForm):

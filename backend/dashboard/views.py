@@ -19,7 +19,7 @@ from complexes.onboarding import (
     run_implementation_test,
 )
 from complexes.selectors import visible_complexes_for
-from providers.models import ProviderMembership, ServiceCategory
+from providers.models import ProviderMembership, ServiceCategory, ServiceOffering
 from providers.selectors import visible_providers_for
 from tickets.filters import filter_ticket_queryset
 from tickets.models import Ticket
@@ -42,6 +42,7 @@ from .forms import (
     ResidentialComplexProfileForm,
     ResidentialComplexSetupForm,
     RoutingRuleSetupForm,
+    ServiceOfferingSetupForm,
     TicketWebCreateForm,
 )
 from .access import internal_user_required
@@ -72,6 +73,7 @@ def _ticket_queryset_for(user, workspace_complex=None):
         'category',
         'provider',
         'assignee',
+        'service_order__offering',
     )
     if workspace_complex is not None:
         return visible_tickets_for(user, queryset).filter(
@@ -199,6 +201,7 @@ def implementation_complex(request, complex_slug, section='overview'):
         'services': 'Услуги',
         'providers': 'Поставщики',
         'routing': 'Маршрутизация',
+        'catalog': 'Витрина услуг',
         'launch': 'Проверка и запуск',
         'audit': 'История',
     }
@@ -241,6 +244,11 @@ def implementation_complex(request, complex_slug, section='overview'):
         request.POST or None,
         residential_complex=residential_complex,
         prefix='routing',
+    )
+    offering_form = ServiceOfferingSetupForm(
+        request.POST or None,
+        residential_complex=residential_complex,
+        prefix='offering',
     )
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -315,7 +323,18 @@ def implementation_complex(request, complex_slug, section='overview'):
             )
             messages.success(request, 'Правило маршрутизации сохранено.')
             return _redirect_after_wizard_save(
-                request, residential_complex, current='routing', next_section='launch',
+                request, residential_complex, current='routing', next_section='catalog',
+            )
+        if action == 'save_offering' and offering_form.is_valid():
+            offering = offering_form.save()
+            _record_configuration_event(
+                residential_complex, request.user,
+                ComplexConfigurationEvent.Type.SERVICE,
+                f'Опубликовано предложение «{offering.title}» за {offering.price} ₽.',
+            )
+            messages.success(request, 'Карточка услуги для жителей сохранена.')
+            return _redirect_after_wizard_save(
+                request, residential_complex, current='catalog', next_section='launch',
             )
         if action == 'run_test':
             test_run = run_implementation_test(residential_complex, request.user)
@@ -347,6 +366,9 @@ def implementation_complex(request, complex_slug, section='overview'):
             'category',
             'provider',
         ),
+        'service_offerings': ServiceOffering.objects.filter(
+            residential_complex=residential_complex,
+        ).select_related('provider', 'category'),
         'memberships': residential_complex.memberships.select_related('user'),
         'channels': residential_complex.intake_channels.all(),
         'notification_rules': residential_complex.notification_rules.all(),
@@ -360,6 +382,7 @@ def implementation_complex(request, complex_slug, section='overview'):
         'service_form': service_form,
         'provider_form': provider_form,
         'routing_form': routing_form,
+        'offering_form': offering_form,
     }
     return render(request, 'dashboard/implementation_complex.html', context)
 

@@ -1,0 +1,8 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Новости{% endblock %}
+{% block content %}
+  <div class="page-heading"><p class="eyebrow">ВАШ ДОМ</p><h1>Новости</h1><p>Важное от управляющей организации и полезные предложения.</p></div>
+  <div class="news-strip">{% for item in news_items %}<article class="news-card"><small>{{ item.published_at|date:'d.m.Y' }}</small><h2>{{ item.title }}</h2><p>{{ item.summary }}</p></article>{% empty %}<article class="news-card"><h2>Новостей пока нет</h2><p>Здесь будут объявления вашего ЖК.</p></article>{% endfor %}</div>
+  <div class="section-heading"><h2>История заказов</h2><a href="{% url 'resident_portal:tickets' %}">Все</a></div>
+  <div class="list-card">{% for ticket in orders %}<a class="list-row" href="{% url 'resident_portal:ticket-detail' ticket.pk %}"><span class="list-icon">{{ ticket.category.name|slice:':1' }}</span><span><strong>{{ ticket.title }}</strong><small>{{ ticket.get_resident_status_display }}</small></span><b>›</b></a>{% empty %}<div class="empty">Заказов услуг пока нет.</div>{% endfor %}</div>
+{% endblock %}

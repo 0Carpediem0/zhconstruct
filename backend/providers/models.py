@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -83,6 +84,97 @@ class ProviderService(models.Model):
 
     def __str__(self):
         return f'{self.provider}: {self.category}'
+
+
+class ServiceOffering(models.Model):
+    """Коммерческое предложение поставщика для жителей конкретного ЖК.
+
+    Категория описывает тип работ, а предложение — то, что житель реально
+    видит и заказывает: название, цену, длительность и доступное время.
+    """
+
+    residential_complex = models.ForeignKey(
+        'complexes.ResidentialComplex',
+        on_delete=models.CASCADE,
+        related_name='service_offerings',
+    )
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.PROTECT,
+        related_name='service_offerings',
+    )
+    category = models.ForeignKey(
+        ServiceCategory,
+        on_delete=models.PROTECT,
+        related_name='offerings',
+    )
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    duration_minutes = models.PositiveIntegerField(default=120)
+    capacity_per_slot = models.PositiveIntegerField(default=1)
+    available_weekdays = models.JSONField(default=list)
+    available_from = models.TimeField()
+    available_until = models.TimeField()
+    minimum_lead_hours = models.PositiveIntegerField(default=12)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('category__name', 'price', 'title')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('residential_complex', 'provider', 'category'),
+                name='unique_provider_offering_per_complex_category',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name='service_offering_price_not_negative',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.available_from and self.available_until:
+            if self.available_from >= self.available_until:
+                errors['available_until'] = 'Время окончания должно быть позже начала.'
+        invalid_weekdays = set(self.available_weekdays or ()) - set(range(7))
+        if invalid_weekdays or not self.available_weekdays:
+            errors['available_weekdays'] = 'Выберите хотя бы один корректный день недели.'
+
+        if self.residential_complex_id and self.provider_id and self.category_id:
+            from complexes.models import ResidentialComplexProvider, ServiceRoutingRule
+
+            connected = ResidentialComplexProvider.objects.filter(
+                residential_complex_id=self.residential_complex_id,
+                provider_id=self.provider_id,
+                service_categories__id=self.category_id,
+                is_active=True,
+                provider__services__category_id=self.category_id,
+                provider__services__is_active=True,
+            ).exists()
+            if not connected:
+                errors['provider'] = (
+                    'Поставщик не подключён к этому ЖК для выбранной категории.'
+                )
+            direct_route = ServiceRoutingRule.objects.filter(
+                residential_complex_id=self.residential_complex_id,
+                category_id=self.category_id,
+                provider_id=self.provider_id,
+                mode=ServiceRoutingRule.Mode.DIRECT,
+                is_active=True,
+            ).exists()
+            if not direct_route:
+                errors['provider'] = (
+                    'Для витрины сначала настройте прямой маршрут к этому поставщику.'
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f'{self.residential_complex}: {self.title} — {self.provider}'
 
 
 class ProviderMembership(models.Model):

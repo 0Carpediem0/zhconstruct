@@ -103,7 +103,31 @@
             <section class="panel implementation-main-panel"><div class="panel-header"><div><span class="section-kicker">Логика назначения</span><h2>Маршруты заявок</h2></div></div>
                 <div class="record-list">{% for rule in routing_rules %}<article class="record-row"><span class="channel-icon">⇢</span><div><strong>{{ rule.category.name }}</strong><small>{{ rule.get_mode_display }}{% if rule.provider %} · {{ rule.provider.name }}{% endif %}</small></div><span class="state-dot on">Настроен</span></article>{% empty %}<div class="empty-state"><p>Явных правил нет. Система использует единственного или предпочтительного поставщика, иначе передаёт заявку диспетчеру.</p></div>{% endfor %}</div>
             </section>
-            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Правило</span><h2>Настроить категорию</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_routing">{% for field in routing_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<div class="form-submit-group"><button class="button button-secondary" type="submit">Сохранить ещё</button><button class="button button-primary" type="submit" name="continue" value="1">Сохранить и проверить →</button></div></form></aside>
+            <aside class="panel form-side-card"><div class="panel-header"><div><span class="section-kicker">Правило</span><h2>Настроить категорию</h2></div></div><form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_routing">{% for field in routing_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<div class="form-submit-group"><button class="button button-secondary" type="submit">Сохранить ещё</button><button class="button button-primary" type="submit" name="continue" value="1">Сохранить и настроить витрину →</button></div></form></aside>
+        </div>
+
+    {% elif active_section == 'catalog' %}
+        <div class="implementation-grid">
+            <section class="panel implementation-main-panel">
+                <div class="panel-header"><div><span class="section-kicker">Кабинет жителя</span><h2>Витрина услуг</h2></div><span class="count-pill">{{ service_offerings|length }}</span></div>
+                <p class="section-description">Здесь задаются условия, которые житель увидит до оформления заказа. Сохранённая цена фиксируется в заказе и не меняется вместе с витриной.</p>
+                <div class="record-list">
+                    {% for offering in service_offerings %}
+                        <article class="provider-record">
+                            <div class="record-row"><span class="record-avatar provider-avatar">₽</span><div><strong>{{ offering.title }}</strong><small>{{ offering.category.name }} · {{ offering.provider.name }}</small></div><span class="state-dot {% if offering.is_active %}on{% endif %}">{{ offering.price|floatformat:2 }} ₽</span></div>
+                            <div class="provider-meta"><span>{{ offering.duration_minutes }} мин.</span><span>{{ offering.available_from|time:'H:i' }}–{{ offering.available_until|time:'H:i' }}</span><span>{{ offering.available_weekdays|length }} дн. в неделю</span><span>за {{ offering.minimum_lead_hours }} ч.</span></div>
+                        </article>
+                    {% empty %}<div class="empty-state"><p>Пока ни одна услуга не опубликована для жителей.</p></div>{% endfor %}
+                </div>
+            </section>
+            <aside class="panel form-side-card">
+                <div class="panel-header"><div><span class="section-kicker">Предложение</span><h2>Настроить карточку</h2></div></div>
+                <form class="action-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save_offering">
+                    {% for field in offering_form %}<div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+                    {% for error in offering_form.non_field_errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+                    <div class="form-submit-group"><button class="button button-secondary" type="submit">Сохранить ещё</button><button class="button button-primary" type="submit" name="continue" value="1">Сохранить и проверить →</button></div>
+                </form>
+            </aside>
         </div>
 
     {% elif active_section == 'launch' %}

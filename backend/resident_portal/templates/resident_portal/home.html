@@ -1,0 +1,18 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}ЖКХ — {{ complex.name }}{% endblock %}
+{% block content %}
+  <section class="welcome"><p class="eyebrow">ДОБРЫЙ ДЕНЬ</p><h1>{{ applicant.full_name|truncatewords:1 }}</h1><p>{{ complex.address }} · кв. {{ applicant.apartment|default:'—' }}</p></section>
+  <section class="payment-card">
+    <div><p>К оплате за ЖКХ</p><h2>{% if utility_account %}{{ utility_account.amount_due|floatformat:2 }} ₽{% else %}Нет начислений{% endif %}</h2>{% if utility_account %}<small>Лицевой счёт {{ utility_account.account_number }} · до {{ utility_account.due_date|date:'d.m.Y' }}</small>{% endif %}</div>
+    <a class="button light" href="{% url 'resident_portal:payments' %}">Оплатить</a>
+  </section>
+  <div class="section-heading"><div><p class="eyebrow">БЫСТРЫЙ ДОСТУП</p><h2>Что нужно сделать?</h2></div></div>
+  <div class="quick-grid">
+    <a href="{% url 'resident_portal:services' %}"><span>◇</span><strong>Заказать услугу</strong><small>Клининг и помощь по дому</small></a>
+    <a href="{% url 'resident_portal:ticket-create' %}"><span>+</span><strong>Сообщить о проблеме</strong><small>Обращение в ТСЖ</small></a>
+  </div>
+  <div class="section-heading"><h2>Последние обращения</h2><a href="{% url 'resident_portal:tickets' %}">Все</a></div>
+  <div class="list-card">
+    {% for ticket in recent_tickets %}<a class="list-row" href="{% url 'resident_portal:ticket-detail' ticket.pk %}"><span class="list-icon">{{ ticket.category.name|slice:':1' }}</span><span><strong>{{ ticket.title }}</strong><small>{{ ticket.get_resident_status_display }} · {{ ticket.created_at|date:'d.m.Y' }}</small></span><b>›</b></a>{% empty %}<div class="empty">У вас пока нет обращений.</div>{% endfor %}
+  </div>
+{% endblock %}

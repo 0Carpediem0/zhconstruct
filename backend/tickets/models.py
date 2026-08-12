@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
@@ -10,6 +11,13 @@ class Applicant(models.Model):
         'complexes.ResidentialComplex',
         on_delete=models.CASCADE,
         related_name='applicants',
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='applicant_profile',
+        null=True,
+        blank=True,
     )
     full_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=32, blank=True)
@@ -63,6 +71,10 @@ class Ticket(models.Model):
         AI = 'ai', 'Обработана ИИ'
         IMPORT = 'import', 'Импортирована'
         INTEGRATION = 'integration', 'Внешняя интеграция'
+
+    class Kind(models.TextChoices):
+        APPEAL = 'appeal', 'Обращение в ТСЖ'
+        SERVICE_ORDER = 'service_order', 'Заказ услуги'
 
     # Карта является единственным местом, где описан допустимый жизненный
     # цикл. API, фоновые задачи и интеграции должны использовать
@@ -127,6 +139,11 @@ class Ticket(models.Model):
         choices=Source.choices,
         default=Source.DIRECT,
     )
+    kind = models.CharField(
+        max_length=24,
+        choices=Kind.choices,
+        default=Kind.APPEAL,
+    )
     # Идентификатор нужен для идемпотентного импорта: повторная доставка
     # одной заявки из ИИ или внешней системы не должна создать дубликат.
     external_id = models.CharField(max_length=255, null=True, blank=True)
@@ -150,6 +167,28 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f'#{self.pk or "new"}: {self.title}'
+
+    def get_resident_status_display(self):
+        """Возвращает понятное жильцу название без внутренних терминов."""
+
+        try:
+            order = self.service_order
+        except ObjectDoesNotExist:
+            order = None
+        if order and order.resident_confirmed_at:
+            return 'Выполнено и подтверждено'
+        if order and self.status == self.Status.COMPLETED:
+            return 'Ожидает вашего подтверждения'
+        labels = {
+            self.Status.NEW: 'Получено',
+            self.Status.AWAITING_ASSIGNMENT: 'Ищем исполнителя',
+            self.Status.ASSIGNED: 'Исполнитель назначен',
+            self.Status.ACCEPTED: 'Исполнитель принял заказ',
+            self.Status.IN_PROGRESS: 'В работе',
+            self.Status.COMPLETED: 'Выполнено',
+            self.Status.CANCELLED: 'Отменено',
+        }
+        return labels[self.status]
 
     def clean(self):
         """Проверяет связи, которые нельзя выразить обычным внешним ключом."""

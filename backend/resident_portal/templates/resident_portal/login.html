@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход для жителей</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'resident_portal/app.css' %}">
+</head>
+<body class="login-body">
+  <main class="login-layout">
+    <section class="login-visual" aria-label="Сервис вашего жилого комплекса">
+      <div class="login-visual-copy"><span class="brand-mark large">ЖК</span><h1>Всё для дома<br>в одном месте</h1><p>Оплата, услуги и обращения без звонков и очередей.</p></div>
+      <img src="{% static 'images/family-illustration.png' %}" alt="Семья дома">
+    </section>
+    <section class="login-panel">
+      <div class="login-card">
+        <div class="login-logo"><span class="brand-mark large">ЖК</span><strong>Ваш жилой комплекс</strong></div>
+        <p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ ЖИТЕЛЯ</p>
+        <h2>Добро пожаловать</h2>
+        <p class="muted">Введите данные, которые вы получили в управляющей организации.</p>
+        <form method="post" class="form-stack">
+          {% csrf_token %}
+          {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors|striptags }}</div>{% endif %}
+          <label>{{ form.username.label }}{{ form.username }}</label>
+          <label>{{ form.password.label }}{{ form.password }}</label>
+          <button class="button primary wide" type="submit">Войти</button>
+        </form>
+        <a class="help-link" href="mailto:support@local.test?subject=Проблема со входом">Проблемы со входом?</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,3 +1,5 @@
+from datetime import time
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -16,8 +18,10 @@ from providers.models import (
     ProviderMembership,
     ProviderService,
     ServiceCategory,
+    ServiceOffering,
 )
 from tickets.models import Applicant, Ticket
+from resident_portal.models import NewsPost, UtilityAccount
 
 
 class Command(BaseCommand):
@@ -53,6 +57,7 @@ class Command(BaseCommand):
         complex_manager, _ = user_model.objects.get_or_create(
             username='demo-complex-manager',
         )
+        resident, _ = user_model.objects.get_or_create(username='demo-resident')
         demo_users = (
             (dispatcher, 'Мария', 'Диспетчерова'),
             (north_dispatcher, 'Ольга', 'Северова'),
@@ -67,6 +72,12 @@ class Command(BaseCommand):
             if options.get('demo_password'):
                 user.set_password(options['demo_password'])
             user.save()
+        resident.first_name = 'Анна'
+        resident.last_name = 'Смирнова'
+        resident.email = 'anna@example.test'
+        if options.get('demo_password'):
+            resident.set_password(options['demo_password'])
+        resident.save()
         implementer.platform_role = user_model.PlatformRole.IMPLEMENTER
         implementer.save(update_fields=('platform_role',))
 
@@ -94,6 +105,7 @@ class Command(BaseCommand):
             residential_complex=residential_complex,
             external_id='demo-applicant-anna',
             defaults={
+                'user': resident,
                 'full_name': 'Анна Смирнова',
                 'phone': '+7 900 000-00-01',
                 'email': 'anna@example.test',
@@ -114,8 +126,26 @@ class Command(BaseCommand):
         category, _ = ServiceCategory.objects.get_or_create(
             slug='entrance-cleaning',
             defaults={
-                'name': 'Уборка подъезда',
-                'description': 'Влажная уборка и обслуживание общих зон.',
+                'name': 'Клининг',
+                'description': 'Уборка квартиры и общих зон.',
+            },
+        )
+        # Обновляем старые демоданные, чтобы название карточки и заказа совпадало.
+        category.name = 'Клининг'
+        category.description = 'Уборка квартиры и общих зон.'
+        category.save(update_fields=('name', 'description'))
+        dog_category, _ = ServiceCategory.objects.get_or_create(
+            slug='dog-walking',
+            defaults={
+                'name': 'Выгул собаки',
+                'description': 'Прогулка с питомцем в удобное для жителя время.',
+            },
+        )
+        trash_category, _ = ServiceCategory.objects.get_or_create(
+            slug='trash-removal',
+            defaults={
+                'name': 'Вынос мусора',
+                'description': 'Исполнитель заберёт бытовой мусор от двери квартиры.',
             },
         )
         electricity_category, _ = ServiceCategory.objects.get_or_create(
@@ -147,7 +177,12 @@ class Command(BaseCommand):
             category=category,
             defaults={'is_active': True},
         )
-        for extra_category in (electricity_category, plumbing_category):
+        for extra_category in (
+            electricity_category,
+            plumbing_category,
+            dog_category,
+            trash_category,
+        ):
             ProviderService.objects.update_or_create(
                 provider=provider,
                 category=extra_category,
@@ -227,6 +262,8 @@ class Command(BaseCommand):
             (category, ResidentialComplexService.Priority.NORMAL, 240),
             (electricity_category, ResidentialComplexService.Priority.HIGH, 60),
             (plumbing_category, ResidentialComplexService.Priority.HIGH, 30),
+            (dog_category, ResidentialComplexService.Priority.NORMAL, 120),
+            (trash_category, ResidentialComplexService.Priority.NORMAL, 60),
         ):
             ResidentialComplexService.objects.update_or_create(
                 residential_complex=residential_complex,
@@ -261,16 +298,95 @@ class Command(BaseCommand):
             category,
             electricity_category,
             plumbing_category,
+            dog_category,
+            trash_category,
         )
-        ServiceRoutingRule.objects.update_or_create(
-            residential_complex=residential_complex,
-            category=category,
+        for direct_category in (category, dog_category, trash_category):
+            ServiceRoutingRule.objects.update_or_create(
+                residential_complex=residential_complex,
+                category=direct_category,
+                defaults={
+                    'mode': ServiceRoutingRule.Mode.DIRECT,
+                    'provider': provider,
+                    'is_active': True,
+                },
+            )
+
+        for offering_category, title, description, price, duration, start, end, lead, capacity in (
+            (
+                category,
+                'Поддерживающая уборка',
+                'Уборка квартиры до 60 м²: поверхности, полы, кухня и санузел.',
+                '3500.00', 180, time(9), time(20), 12, 2,
+            ),
+            (
+                dog_category,
+                'Выгул собаки',
+                'Часовая прогулка с питомцем рядом с домом.',
+                '700.00', 60, time(7), time(22), 2, 3,
+            ),
+            (
+                trash_category,
+                'Вынос мусора от двери',
+                'Заберём бытовой мусор из квартиры в выбранное время.',
+                '350.00', 30, time(8), time(21), 2, 5,
+            ),
+        ):
+            offering, _ = ServiceOffering.objects.update_or_create(
+                residential_complex=residential_complex,
+                provider=provider,
+                category=offering_category,
+                defaults={
+                    'title': title,
+                    'description': description,
+                    'price': price,
+                    'duration_minutes': duration,
+                    'capacity_per_slot': capacity,
+                    'available_weekdays': list(range(7)),
+                    'available_from': start,
+                    'available_until': end,
+                    'minimum_lead_hours': lead,
+                    'is_active': True,
+                },
+            )
+            offering.full_clean()
+            offering.save()
+
+        UtilityAccount.objects.update_or_create(
+            applicant=applicant,
             defaults={
-                'mode': ServiceRoutingRule.Mode.DIRECT,
-                'provider': provider,
-                'is_active': True,
+                'account_number': 'ЕКБ-001-0042',
+                'balance': '-4837.60',
+                'amount_due': '4837.60',
+                'due_date': '2026-08-20',
             },
         )
+        for title, summary, published_at in (
+            (
+                'Проверка системы отопления',
+                'С 15 августа специалисты начнут плановый обход квартир.',
+                '2026-08-10T09:00:00+05:00',
+            ),
+            (
+                'Двор без машин в субботу',
+                'Освободите гостевую парковку с 10:00 до 14:00 для уборки.',
+                '2026-08-08T12:00:00+05:00',
+            ),
+            (
+                'Новый сервис для жителей',
+                'Теперь клининг, выгул собак и вынос мусора можно заказать онлайн.',
+                '2026-08-05T15:30:00+05:00',
+            ),
+        ):
+            NewsPost.objects.update_or_create(
+                residential_complex=residential_complex,
+                title=title,
+                defaults={
+                    'summary': summary,
+                    'published_at': published_at,
+                    'is_published': True,
+                },
+            )
 
         ticket = Ticket.objects.filter(
             residential_complex=residential_complex,
@@ -428,3 +544,5 @@ class Command(BaseCommand):
                 'demo-implementer, demo-complex-manager, '
                 'demo-provider-manager, demo-employee'
             )
+            self.stdout.write('Житель: demo-resident')
+            self.stdout.write('Кабинет жителя: http://localhost:8000/app/login/')

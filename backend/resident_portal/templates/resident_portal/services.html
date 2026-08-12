@@ -1,0 +1,8 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Маркет услуг{% endblock %}
+{% block content %}
+  <div class="page-heading"><p class="eyebrow">ДЛЯ ДОМА И СЕМЬИ</p><h1>Маркет услуг</h1><p>Проверенные исполнители вашего жилого комплекса.</p></div>
+  <div class="service-list">
+    {% for card in service_cards %}<a class="service-card {{ card.style }}" href="{% url 'resident_portal:service-detail' card.offering.pk %}"><div><small>ОТ {{ card.offering.price|floatformat:0 }} ₽</small><h2>{{ card.title }}</h2><p>{{ card.subtitle }}</p></div><b>→</b></a>{% empty %}<div class="surface empty">Услуги пока не подключены. Они появятся после настройки ЖК.</div>{% endfor %}
+  </div>
+{% endblock %}

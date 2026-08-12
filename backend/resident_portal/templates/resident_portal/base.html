@@ -1,0 +1,40 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ complex.name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'resident_portal/app.css' %}">
+</head>
+<body class="app-body">
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="{% url 'resident_portal:home' %}" aria-label="На главную">
+        <span class="brand-mark">ЖК</span>
+        <span><strong>{{ complex.name }}</strong><small>{{ complex.management_company|default:'Сервис для жителей' }}</small></span>
+      </a>
+      <a class="avatar-link" href="{% url 'resident_portal:profile' %}" aria-label="Открыть профиль">{{ applicant.full_name|slice:':1' }}</a>
+    </header>
+
+    {% if messages %}
+      <div class="messages" aria-live="polite">
+        {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    <main class="app-content">{% block content %}{% endblock %}</main>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <a href="{% url 'resident_portal:home' %}" class="{% if active_nav == 'home' %}active{% endif %}"><span>⌂</span><small>ЖКХ</small></a>
+      <a href="{% url 'resident_portal:services' %}" class="{% if active_nav == 'services' %}active{% endif %}"><span>◇</span><small>Услуги</small></a>
+      <a href="{% url 'resident_portal:news' %}" class="{% if active_nav == 'news' %}active{% endif %}"><span>▤</span><small>Новости</small></a>
+      <a href="{% url 'resident_portal:tickets' %}" class="{% if active_nav == 'tickets' %}active{% endif %}"><span>○</span><small>Обращения</small></a>
+      <a href="{% url 'resident_portal:profile' %}" class="{% if active_nav == 'profile' %}active{% endif %}"><span>♙</span><small>Профиль</small></a>
+    </nav>
+  </div>
+</body>
+</html>

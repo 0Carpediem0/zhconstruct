@@ -25,6 +25,10 @@
                     <div><span>Заявитель</span><strong>{{ ticket.applicant.full_name }}</strong><small>{% if ticket.applicant.apartment %}Квартира {{ ticket.applicant.apartment }} · {% endif %}{{ ticket.applicant.phone|default:'Телефон не указан' }}</small></div>
                     <div><span>Категория</span><strong>{{ ticket.category.name }}</strong><small>{{ ticket.get_source_display }}</small></div>
                     <div><span>Поставщик</span><strong>{{ ticket.provider.name|default:'Не назначен' }}</strong><small>{% if ticket.assignee %}{{ ticket.assignee.get_full_name|default:ticket.assignee.username }}{% else %}Исполнитель не выбран{% endif %}</small></div>
+                    {% if ticket.service_order %}
+                        <div><span>Дата и время заказа</span><strong>{{ ticket.service_order.scheduled_date|date:'d.m.Y' }}, {{ ticket.service_order.scheduled_start|time:'H:i' }}–{{ ticket.service_order.scheduled_end|time:'H:i' }}</strong><small>{{ ticket.service_order.offering.duration_minutes }} минут</small></div>
+                        <div><span>Зафиксированная стоимость</span><strong>{{ ticket.service_order.quoted_price|floatformat:2 }} ₽</strong><small>{% if ticket.service_order.resident_confirmed_at %}Житель подтвердил выполнение{% elif ticket.status == 'completed' %}Ожидается подтверждение жителя{% else %}Оплата по правилам поставщика{% endif %}</small></div>
+                    {% endif %}
                 </div>
             </section>
 

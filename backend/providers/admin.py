@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Provider, ProviderMembership, ProviderService, ServiceCategory
+from .models import (
+    Provider,
+    ProviderMembership,
+    ProviderService,
+    ServiceCategory,
+    ServiceOffering,
+)
 
 
 class ProviderServiceInline(admin.TabularInline):
@@ -37,3 +43,12 @@ class ProviderMembershipAdmin(admin.ModelAdmin):
     list_filter = ('role', 'is_active')
     search_fields = ('user__username', 'user__email', 'provider__name')
     autocomplete_fields = ('user', 'provider')
+
+
+@admin.register(ServiceOffering)
+class ServiceOfferingAdmin(admin.ModelAdmin):
+    list_display = (
+        'title', 'residential_complex', 'provider', 'price', 'is_active',
+    )
+    list_filter = ('residential_complex', 'provider', 'category', 'is_active')
+    search_fields = ('title', 'description', 'provider__name')

@@ -9,6 +9,7 @@ from providers.serializers import ProviderSummarySerializer, ServiceCategorySeri
 from users.serializers import UserSummarySerializer
 
 from .models import Applicant, Ticket, TicketStatusHistory
+from resident_portal.models import ServiceOrderDetails
 from .permissions import can_register_ticket
 
 
@@ -29,6 +30,22 @@ class ApplicantSerializer(serializers.ModelSerializer):
         )
 
 
+class ServiceOrderDetailsSerializer(serializers.ModelSerializer):
+    offering_title = serializers.CharField(source='offering.title', read_only=True)
+    provider_name = serializers.CharField(
+        source='offering.provider.name',
+        read_only=True,
+    )
+
+    class Meta:
+        model = ServiceOrderDetails
+        fields = (
+            'offering', 'offering_title', 'provider_name', 'scheduled_date',
+            'scheduled_start', 'scheduled_end', 'quoted_price', 'currency',
+            'resident_comment', 'resident_confirmed_at',
+        )
+
+
 class TicketReadSerializer(serializers.ModelSerializer):
     residential_complex = ResidentialComplexSerializer(read_only=True)
     applicant = ApplicantSerializer(read_only=True)
@@ -38,6 +55,8 @@ class TicketReadSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source='get_status_display', read_only=True)
     priority_label = serializers.CharField(source='get_priority_display', read_only=True)
     source_label = serializers.CharField(source='get_source_display', read_only=True)
+    kind_label = serializers.CharField(source='get_kind_display', read_only=True)
+    service_order = ServiceOrderDetailsSerializer(read_only=True)
 
     class Meta:
         model = Ticket
@@ -56,6 +75,9 @@ class TicketReadSerializer(serializers.ModelSerializer):
             'priority_label',
             'source',
             'source_label',
+            'kind',
+            'kind_label',
+            'service_order',
             'external_id',
             'created_at',
             'updated_at',
