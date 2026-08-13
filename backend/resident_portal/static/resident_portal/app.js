@@ -7,7 +7,10 @@
   const textarea = form.querySelector('textarea');
   const log = widget.querySelector('[data-ai-log]');
   const result = widget.querySelector('[data-ai-result]');
+  const analyzeButton = form.querySelector('button');
   const createButton = widget.querySelector('[data-ai-create]');
+  const analyzeButtonText = analyzeButton.textContent;
+  const createButtonText = createButton.textContent;
   const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
   let lastMessage = '';
   let lastAnalysis = null;
@@ -18,6 +21,7 @@
     item.textContent = text;
     log.appendChild(item);
     log.scrollTop = log.scrollHeight;
+    return item;
   };
 
   const postJson = async (url, payload) => {
@@ -31,9 +35,15 @@
     return data;
   };
 
-  const setLoading = (loading) => {
-    form.querySelector('button').disabled = loading;
+  const setLoading = (loading, mode = 'analyze') => {
+    analyzeButton.disabled = loading;
     createButton.disabled = loading;
+    analyzeButton.textContent = loading && mode === 'analyze'
+      ? 'Разбираю...'
+      : analyzeButtonText;
+    createButton.textContent = loading && mode === 'create'
+      ? 'Отправляю...'
+      : createButtonText;
   };
 
   const fillResult = (analysis) => {
@@ -67,15 +77,18 @@
     lastAnalysis = null;
     result.hidden = true;
     addMessage('user', message);
-    setLoading(true);
+    const pendingMessage = addMessage('assistant pending', 'Разбираю обращение...');
+    setLoading(true, 'analyze');
 
     try {
       const data = await postJson(widget.dataset.analyzeUrl, {message});
       lastAnalysis = data.analysis;
-      addMessage('assistant', lastAnalysis.resident_reply);
+      pendingMessage.className = 'ai-widget-message assistant';
+      pendingMessage.textContent = lastAnalysis.resident_reply;
       fillResult(lastAnalysis);
     } catch (error) {
-      addMessage('assistant', error.message);
+      pendingMessage.className = 'ai-widget-message assistant';
+      pendingMessage.textContent = error.message;
     } finally {
       setLoading(false);
     }
@@ -84,7 +97,7 @@
   createButton.addEventListener('click', async () => {
     if (!lastMessage || !lastAnalysis) return;
 
-    setLoading(true);
+    setLoading(true, 'create');
     try {
       const data = await postJson(widget.dataset.createUrl, {
         message: lastMessage,
@@ -97,4 +110,3 @@
     }
   });
 })();
-

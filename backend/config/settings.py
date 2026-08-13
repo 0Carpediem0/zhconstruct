@@ -168,6 +168,7 @@ REST_FRAMEWORK = {
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
 OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
+AI_ASSISTANT_API_TIMEOUT = float(os.getenv('AI_ASSISTANT_API_TIMEOUT', '3'))
 AI_ASSISTANT_ALLOW_FALLBACK = os.getenv(
     'AI_ASSISTANT_ALLOW_FALLBACK',
     'true',

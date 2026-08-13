@@ -40,7 +40,7 @@
         </div>
         <form class="ai-widget-form" data-ai-form>
           {% csrf_token %}
-          <textarea name="message" rows="3" placeholder="Например: в 3 подъезде прорвало трубу"></textarea>
+          <textarea name="message" rows="3" maxlength="4000" placeholder="Например: в 3 подъезде прорвало трубу"></textarea>
           <button class="button primary wide" type="submit">Разобрать</button>
         </form>
         <div class="ai-widget-result" data-ai-result hidden>

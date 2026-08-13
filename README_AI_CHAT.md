@@ -48,10 +48,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4.1-mini
+AI_ASSISTANT_API_TIMEOUT=3
 AI_ASSISTANT_ALLOW_FALLBACK=true
 ```
 
-Ключ хранится только на backend и не попадает во frontend.
+Ключ хранится только на backend и не попадает во frontend. Если внешний API
+не успевает ответить за `AI_ASSISTANT_API_TIMEOUT` секунд, чат сразу вернет
+локальный разбор по правилам, чтобы пользователь не ждал.
 
 ## Ручные команды без скрипта
 

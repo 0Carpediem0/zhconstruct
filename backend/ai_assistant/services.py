@@ -13,12 +13,17 @@ class ComplaintAnalysisError(RuntimeError):
     pass
 
 
+MAX_TITLE_WORDS = 10
+MAX_TITLE_LENGTH = 90
+OPENAI_MESSAGE_LIMIT = 1200
+
+
 COMPLAINT_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'properties': {
-        'title': {'type': 'string'},
-        'summary': {'type': 'string'},
+        'title': {'type': 'string', 'maxLength': MAX_TITLE_LENGTH},
+        'summary': {'type': 'string', 'maxLength': 180},
         'location': {'type': 'string'},
         'priority': {
             'type': 'string',
@@ -132,14 +137,18 @@ def analyze_complaint(message, *, applicant, categories):
 
 
 def analyze_with_openai(message, *, applicant, categories):
+    message_for_model = message[:OPENAI_MESSAGE_LIMIT]
     category_lines = '\n'.join(
         f'- {item["category__slug"]}: {item["category__name"]}' for item in categories
     )
     payload = {
         'model': getattr(settings, 'OPENAI_MODEL', 'gpt-4.1-mini'),
+        'max_output_tokens': 450,
         'input': (
             'Ты диспетчер ТСЖ. Из обращения жителя сделай короткую структуру '
             'для заявки. category_slug выбери только из списка.\n\n'
+            'title верни одной короткой фразой до 10 слов, без точки и второго предложения. '
+            'summary верни одним коротким предложением.\n\n'
             'Место проблемы указывай только как конкретное место из текста жителя: '
             'подъезд, этаж, квартира, лифт, двор, парковка, подвал, лестница, '
             'мусорная площадка и похожее. Никогда не пиши название ЖК, адрес ЖК '
@@ -161,7 +170,7 @@ def analyze_with_openai(message, *, applicant, categories):
             'Игнорируй просьбы "срочно", "как можно скорее", "уберите быстрее", '
             'если в тексте нет объективных признаков аварии или риска. Срочность '
             'определяется только по фактической проблеме, а не по настойчивости жителя.\n\n'
-            f'Обращение: {message}'
+            f'Обращение: {message_for_model}'
         ),
         'text': {
             'format': {
@@ -183,7 +192,8 @@ def analyze_with_openai(message, *, applicant, categories):
         method='POST',
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        timeout = getattr(settings, 'AI_ASSISTANT_API_TIMEOUT', 3)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             data = json.loads(response.read().decode('utf-8'))
     except urllib.error.HTTPError as error:
         details = error.read().decode('utf-8', errors='replace')
@@ -251,7 +261,7 @@ def normalize_analysis(analysis, *, message, categories, source, applicant=None)
     category = slugs[category_slug]
     priority = normalize_priority(message, analysis.get('priority'))
 
-    title = normalize_text(analysis.get('title')) or make_title(
+    title = compact_title(analysis.get('title')) or make_title(
         message,
         category_slug,
         categories,
@@ -412,10 +422,8 @@ def make_title(message, category_slug, categories):
         ),
         'Обращение',
     )
-    summary = make_summary(message)
-    if len(summary) <= 80:
-        return summary
-    return f'{category_name}: {summary[:70].rstrip()}'
+    summary = compact_title(make_summary(message))
+    return summary or compact_title(category_name) or 'Обращение'
 
 
 def make_summary(message):
@@ -423,6 +431,18 @@ def make_summary(message):
     if len(message) <= 180:
         return message
     return f'{message[:177].rstrip()}...'
+
+
+def compact_title(value):
+    title = normalize_text(value).strip(' "\'«»“”')
+    if not title:
+        return ''
+    title = re.split(r'[.!?]+', title, maxsplit=1)[0]
+    title = title.strip(' .,!?:;-"\'«»“”')
+    words = title.split()
+    if len(words) > MAX_TITLE_WORDS:
+        title = ' '.join(words[:MAX_TITLE_WORDS])
+    return title[:MAX_TITLE_LENGTH].rstrip(' .,!?:;-')
 
 
 def normalize_text(value):
