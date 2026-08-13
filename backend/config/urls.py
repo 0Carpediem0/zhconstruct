@@ -21,6 +21,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('config.api_urls')),
     path('api-auth/', include('rest_framework.urls')),
+    path(
+        'app/ai-chat/',
+        include(('ai_assistant.urls', 'ai_assistant'), namespace='ai_assistant'),
+    ),
     path('app/', include('resident_portal.urls')),
     path('', include('dashboard.urls')),
 ]

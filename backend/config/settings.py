@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'tickets',
     'dashboard',
     'resident_portal',
+    'ai_assistant',
 ]
 
 MIDDLEWARE = [
@@ -163,3 +164,11 @@ REST_FRAMEWORK = {
         'tickets.permissions.IsInternalUser',
     ),
 }
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
+AI_ASSISTANT_ALLOW_FALLBACK = os.getenv(
+    'AI_ASSISTANT_ALLOW_FALLBACK',
+    'true',
+).lower() in {'1', 'true', 'yes', 'on'}

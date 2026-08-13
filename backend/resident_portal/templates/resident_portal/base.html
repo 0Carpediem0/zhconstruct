@@ -28,6 +28,32 @@
 
     <main class="app-content">{% block content %}{% endblock %}</main>
 
+    <section class="ai-widget" data-ai-widget data-analyze-url="/app/ai-chat/analyze/" data-create-url="/app/ai-chat/create-ticket/">
+      <button class="ai-widget-toggle" type="button" data-ai-toggle aria-label="Открыть AI-чат">AI</button>
+      <div class="ai-widget-panel" data-ai-panel hidden>
+        <div class="ai-widget-head">
+          <div><strong>AI-помощник</strong><small>Опишет проблему и срочность</small></div>
+          <button type="button" data-ai-close aria-label="Закрыть">×</button>
+        </div>
+        <div class="ai-widget-log" data-ai-log aria-live="polite">
+          <div class="ai-widget-message assistant">Расскажите, что случилось и где это происходит.</div>
+        </div>
+        <form class="ai-widget-form" data-ai-form>
+          {% csrf_token %}
+          <textarea name="message" rows="3" placeholder="Например: в 3 подъезде прорвало трубу"></textarea>
+          <button class="button primary wide" type="submit">Разобрать</button>
+        </form>
+        <div class="ai-widget-result" data-ai-result hidden>
+          <div><small>Тема</small><strong data-ai-title></strong></div>
+          <div><small>Место</small><strong data-ai-location></strong></div>
+          <div><small>Категория</small><strong data-ai-category></strong></div>
+          <div><small>Срочность</small><strong data-ai-priority></strong></div>
+          <p data-ai-summary></p>
+          <div class="ai-widget-create-row"><button class="button primary wide" type="button" data-ai-create>Отправить заявку</button></div>
+        </div>
+      </div>
+    </section>
+
     <nav class="bottom-nav" aria-label="Основная навигация">
       <a href="{% url 'resident_portal:home' %}" class="{% if active_nav == 'home' %}active{% endif %}"><span>⌂</span><small>ЖКХ</small></a>
       <a href="{% url 'resident_portal:services' %}" class="{% if active_nav == 'services' %}active{% endif %}"><span>◇</span><small>Услуги</small></a>
@@ -36,5 +62,6 @@
       <a href="{% url 'resident_portal:profile' %}" class="{% if active_nav == 'profile' %}active{% endif %}"><span>♙</span><small>Профиль</small></a>
     </nav>
   </div>
+  <script src="{% static 'resident_portal/app.js' %}"></script>
 </body>
 </html>
