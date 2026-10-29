@@ -1,91 +1,91 @@
-# ЖКонстракт Backend
+# ЖКонстракт (zhconstruct)
 
-Backend-сервис для маршрутизации и обработки заявок жителей между ЖК,
-ТСЖ и независимыми поставщиками услуг.
+**Командный учебный проект — платформа для управления заявками жителей, ТСЖ и подрядных организаций.**
 
-## Бизнес-контур
+Проект объединяет обработку обращений жителей, маршрутизацию заявок и взаимодействие с подключёнными поставщиками услуг. В `main` размещена итоговая структура командного учебного проекта. Разработка завершена; отдельные ветки сохранены для истории.
 
-- `User` — общая техническая учётная запись для авторизации. Права сотрудника
-  задаются служебными ролями, а доступ жителя — связью с `Applicant`.
-- `Applicant` — карточка жителя: ФИО, контакты, квартира, внешний ID и,
-  при наличии личного кабинета, связанная учётная запись.
-- Без отдельной настройки новая заявка остаётся в очереди диспетчера ТСЖ.
-- `ServiceRoutingRule` может направить выбранную категорию сразу согласованному
-  поставщику. Правило задаётся отдельно для каждого ЖК при внедрении.
-- Поставщик прямого маршрута всё равно должен быть подключён к ЖК и иметь
-  активную услугу нужной категории.
+## Возможности проекта
+
+В итоговой версии проекта:
+
+- Кабинет жителя: обращения в ТСЖ, новости дома, профиль, начисления ЖКХ и витрина услуг.
+- Создание заявок и маршрутизация между диспетчером ТСЖ и подключёнными подрядчиками по настроенным правилам.
+- Настройка услуг подрядчиков и оформление заказов через кабинет жителя.
+- Служебные роли и управление доступом.
+- Экспериментальный AI-чат для оформления обращений: выделение темы, категории, места и срочности. Предусмотрены подключение API модели и резервный разбор по правилам.
+
+> Это учебный проект, а не запущенный коммерческий сервис. Работаоспособность итоговой сборки в новом `main` отдельно не проверялась.
+
+## Технологии
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-092E20?style=flat-square&logo=django&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css&logoColor=white)
+
+## Ветки проекта
+
+| Ветка | Содержимое |
+| --- | --- |
+| [`main`](https://github.com/0Carpediem0/zhconstruct/tree/main) | Итоговая версия проекта с backend, web-интерфейсом и документацией |
+| [`backend1`](https://github.com/0Carpediem0/zhconstruct/tree/backend1) | Django backend, модели заявок и маршрутизации, PostgreSQL, Docker Compose |
+| [`frontendforkirillshoshev`](https://github.com/0Carpediem0/zhconstruct/tree/frontendforkirillshoshev) | Отдельная ветка веб-интерфейса |
+| [`client-web-skeleton`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton) | Совместная структура frontend и backend, кабинет жителя |
+| [`client-web-skeleton+ai`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton%2Bai) | Расширение объединённой версии AI-чатом и демозапуском |
+
+Финальная версия основана на `client-web-skeleton+ai`. Предыдущие ветки сохранены как история командной разработки.
+
+## Структура проекта
+
+- `backend/` — Django-приложения, модели, API, шаблоны и серверная логика.
+- `assets/`, `css/`, `js/`, `components/`, `pages/`, `config/` — ресурсы и компоненты веб-интерфейса.
+- `index.html`, `main.html` — страницы веб-интерфейса.
+- `compose.yaml`, `.env.example`, `start-demo.ps1` — настройка окружения и демозапуск.
+- `README_AI_CHAT.md` — отдельная документация AI-чата.
 
 ## Локальный запуск
 
-Требования:
+Инструкции относятся к основной ветке `main`. Необходимы Docker Desktop и (для Windows) WSL 2.
 
-- Docker Desktop;
-- WSL 2 для запуска Linux-контейнеров в Windows.
+```bash
+git clone https://github.com/0Carpediem0/zhconstruct.git
+cd zhconstruct
+```
 
-Создайте локальный файл настроек:
+В PowerShell создайте файл окружения:
 
 ```powershell
 Copy-Item .env.example .env
-```
-
-Значения из `.env.example` предназначены только для локальной разработки.
-Перед использованием в другом окружении замените секреты и пароли.
-
-Соберите и запустите PostgreSQL и Django:
-
-```powershell
 docker compose up -d --build
-```
-
-Примените миграции:
-
-```powershell
 docker compose exec backend python manage.py migrate
 ```
 
-Backend будет доступен по адресу <http://localhost:8000/>, Django Admin —
-по адресу <http://localhost:8000/admin/>.
+После запуска: [кабинет жителя](http://localhost:8000/app/), [Django Admin](http://localhost:8000/admin/).
 
-## Кабинет жителя
+Для демонстрационных данных и AI-чата смотрите [README_AI_CHAT.md](README_AI_CHAT.md).
 
-Мобильная веб-версия доступна по адресу <http://localhost:8000/app/>. В ней
-есть начисления ЖКХ, маркет подключённых услуг, новости дома, обращения в ТСЖ
-и профиль. Заказы и обращения создают обычные backend-заявки и проходят те же
-правила маршрутизации, что импорт и служебный кабинет.
+> Не используйте демонстрационные пароли и настройки окружения в публичном развёртывании. Для использования внешней AI-модели требуется собственный API-ключ; ключ нельзя коммитить в репозиторий.
 
-Для коммерческой услуги внедренец сначала настраивает прямой маршрут, затем
-публикует карточку во вкладке «Витрина услуг»: поставщика, цену, длительность,
-доступные дни и временные интервалы. При заказе цена фиксируется, поставщик
-принимает и выполняет заявку в служебном кабинете, а житель подтверждает результат.
+## Командная разработка
 
-Для демонстрации подготовьте данные:
+Проект ведётся совместно. Функции и компоненты распределены между участниками; принадлежность репозитория не означает единоличного авторства кода. История изменений и ветки позволяют посмотреть ход работы.
 
-```powershell
-docker compose exec backend python manage.py seed_demo_data `
-  --admin-password Admin2026! `
-  --demo-password DemoUser2026!
-```
+Исходные ветки сохранены для истории. При повторном использовании проверьте зависимости, миграции, тесты и настройки окружения.
 
-Вход жителя: `demo-resident` / `DemoUser2026!`.
+---
 
-## Полезные команды
+<details>
+<summary><strong>English summary</strong></summary>
 
-```powershell
-# Состояние контейнеров
-docker compose ps
+**Zhconstruct** is a collaborative educational project for handling residents' requests and coordinating housing-management organizations with service providers.
 
-# Логи backend
-docker compose logs -f backend
+The development branches contain a Django/PostgreSQL backend, a resident web portal, service request routing, and an experimental AI-assisted request form.
 
-# Проверка Django
-docker compose exec backend python manage.py check
+The `main` branch contains the final project snapshot (backend, web interface, and documentation) based on `client-web-skeleton+ai`. It has not been independently verified as production-ready.
 
-# Тесты
-docker compose exec backend python manage.py test
+This repository represents **team development**, not a solo project.
 
-# Остановка без удаления данных PostgreSQL
-docker compose down
-```
-
-Данные PostgreSQL хранятся в именованном Docker-томе `postgres_data`.
-Команда `docker compose down -v` удаляет этот том вместе с локальной базой.
+</details>
