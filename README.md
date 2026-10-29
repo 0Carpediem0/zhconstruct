@@ -2,11 +2,11 @@
 
 **Командный учебный проект — платформа для управления заявками жителей, ТСЖ и подрядных организаций.**
 
-Проект объединяет обработку обращений жителей, маршрутизацию заявок и взаимодействие с подключёнными поставщиками услуг. Разработка ведётся в отдельных ветках: **в `main` сейчас находится документация, а не собранная версия приложения**.
+Проект объединяет обработку обращений жителей, маршрутизацию заявок и взаимодействие с подключёнными поставщиками услуг. В `main` размещена итоговая структура командного учебного проекта. Разработка завершена; отдельные ветки сохранены для истории.
 
 ## Возможности проекта
 
-По состоянию кода в ветке [`client-web-skeleton+ai`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton%2Bai):
+В итоговой версии проекта:
 
 - Кабинет жителя: обращения в ТСЖ, новости дома, профиль, начисления ЖКХ и витрина услуг.
 - Создание заявок и маршрутизация между диспетчером ТСЖ и подключёнными подрядчиками по настроенным правилам.
@@ -14,7 +14,7 @@
 - Служебные роли и управление доступом.
 - Экспериментальный AI-чат для оформления обращений: выделение темы, категории, места и срочности. Предусмотрены подключение API модели и резервный разбор по правилам.
 
-> Это описание функциональности **ветки разработки**, а не утверждение о готовом публичном релизе или развёрнутом сервисе.
+> Это учебный проект, а не запущенный коммерческий сервис. Работаоспособность итоговой сборки в новом `main` отдельно не проверялась.
 
 ## Технологии
 
@@ -30,20 +30,28 @@
 
 | Ветка | Содержимое |
 | --- | --- |
-| [`main`](https://github.com/0Carpediem0/zhconstruct/tree/main) | Описание проекта; пока без исходного кода приложения |
+| [`main`](https://github.com/0Carpediem0/zhconstruct/tree/main) | Итоговая версия проекта с backend, web-интерфейсом и документацией |
 | [`backend1`](https://github.com/0Carpediem0/zhconstruct/tree/backend1) | Django backend, модели заявок и маршрутизации, PostgreSQL, Docker Compose |
 | [`frontendforkirillshoshev`](https://github.com/0Carpediem0/zhconstruct/tree/frontendforkirillshoshev) | Отдельная ветка веб-интерфейса |
 | [`client-web-skeleton`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton) | Совместная структура frontend и backend, кабинет жителя |
 | [`client-web-skeleton+ai`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton%2Bai) | Расширение объединённой версии AI-чатом и демозапуском |
 
-**Для изучения наиболее полной версии см. [`client-web-skeleton+ai`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton%2Bai).** Изменения из веток пока не объединены в `main`.
+Финальная версия основана на `client-web-skeleton+ai`. Предыдущие ветки сохранены как история командной разработки.
 
-## Локальный запуск версии разработки
+## Структура проекта
 
-Инструкции относятся к ветке `client-web-skeleton+ai`. Необходимы Docker Desktop и (для Windows) WSL 2.
+- `backend/` — Django-приложения, модели, API, шаблоны и серверная логика.
+- `assets/`, `css/`, `js/`, `components/`, `pages/`, `config/` — ресурсы и компоненты веб-интерфейса.
+- `index.html`, `main.html` — страницы веб-интерфейса.
+- `compose.yaml`, `.env.example`, `start-demo.ps1` — настройка окружения и демозапуск.
+- `README_AI_CHAT.md` — отдельная документация AI-чата.
+
+## Локальный запуск
+
+Инструкции относятся к основной ветке `main`. Необходимы Docker Desktop и (для Windows) WSL 2.
 
 ```bash
-git clone -b "client-web-skeleton+ai" https://github.com/0Carpediem0/zhconstruct.git
+git clone https://github.com/0Carpediem0/zhconstruct.git
 cd zhconstruct
 ```
 
@@ -57,7 +65,7 @@ docker compose exec backend python manage.py migrate
 
 После запуска: [кабинет жителя](http://localhost:8000/app/), [Django Admin](http://localhost:8000/admin/).
 
-Для демонстрационных данных и AI-чата смотрите документацию в ветке разработки: [README](https://github.com/0Carpediem0/zhconstruct/blob/client-web-skeleton%2Bai/README.md) и [README_AI_CHAT](https://github.com/0Carpediem0/zhconstruct/blob/client-web-skeleton%2Bai/README_AI_CHAT.md).
+Для демонстрационных данных и AI-чата смотрите [README_AI_CHAT.md](README_AI_CHAT.md).
 
 > Не используйте демонстрационные пароли и настройки окружения в публичном развёртывании. Для использования внешней AI-модели требуется собственный API-ключ; ключ нельзя коммитить в репозиторий.
 
@@ -65,7 +73,7 @@ docker compose exec backend python manage.py migrate
 
 Проект ведётся совместно. Функции и компоненты распределены между участниками; принадлежность репозитория не означает единоличного авторства кода. История изменений и ветки позволяют посмотреть ход работы.
 
-Перед полноценным релизом планируется согласовать командные изменения, проверить запуск и тесты интегрированной версии, а затем перенести проверенный код в `main`.
+Исходные ветки сохранены для истории. При повторном использовании проверьте зависимости, миграции, тесты и настройки окружения.
 
 ---
 
@@ -76,7 +84,7 @@ docker compose exec backend python manage.py migrate
 
 The development branches contain a Django/PostgreSQL backend, a resident web portal, service request routing, and an experimental AI-assisted request form.
 
-The `main` branch currently contains project documentation only. For the more complete development version and setup instructions, see [`client-web-skeleton+ai`](https://github.com/0Carpediem0/zhconstruct/tree/client-web-skeleton%2Bai).
+The `main` branch contains the final project snapshot (backend, web interface, and documentation) based on `client-web-skeleton+ai`. It has not been independently verified as production-ready.
 
 This repository represents **team development**, not a solo project.
 

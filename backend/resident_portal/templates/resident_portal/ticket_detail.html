@@ -1,0 +1,10 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Заявка №{{ ticket.pk }}{% endblock %}
+{% block content %}
+  <a class="back-link" href="{% url 'resident_portal:tickets' %}">← Обращения</a><div class="page-heading"><p class="eyebrow">{{ ticket.get_kind_display|upper }} №{{ ticket.pk }}</p><h1>{{ ticket.title }}</h1><p>{{ ticket.category.name }} · создано {{ ticket.created_at|date:'d.m.Y H:i' }}</p></div>
+  <section class="surface ticket-status"><small>Текущий статус</small><h2>{{ resident_status }}</h2>{% if ticket.provider %}<p>Исполнитель: {{ ticket.provider.name }}</p>{% else %}<p>Ответственный определяется</p>{% endif %}</section>
+  {% if ticket.service_order %}<section class="surface order-details"><div><small>Дата и время</small><strong>{{ ticket.service_order.scheduled_date|date:'d.m.Y' }}, {{ ticket.service_order.scheduled_start|time:'H:i' }}–{{ ticket.service_order.scheduled_end|time:'H:i' }}</strong></div><div><small>Стоимость</small><strong>{{ ticket.service_order.quoted_price|floatformat:2 }} ₽</strong></div><div><small>Услуга</small><strong>{{ ticket.service_order.offering.title }}</strong></div></section>{% endif %}
+  <section class="surface"><h2>Описание</h2><p>{{ ticket.description }}</p></section>
+  {% if ticket.service_order and ticket.status == 'completed' and not ticket.service_order.resident_confirmed_at %}<form method="post" action="{% url 'resident_portal:confirm-service-order' ticket.pk %}" class="surface confirmation-card">{% csrf_token %}<h2>Работа действительно выполнена?</h2><p class="muted">После подтверждения заказ будет окончательно закрыт для вас.</p><button class="button primary wide" type="submit">Подтвердить выполнение</button></form>{% endif %}
+  {% if history %}<section class="surface"><h2>Ход работы</h2><div class="timeline">{% for event in history %}<div><span></span><p><strong>{{ event.get_to_status_display }}</strong><small>{{ event.created_at|date:'d.m.Y H:i' }}{% if event.comment %} · {{ event.comment }}{% endif %}</small></p></div>{% endfor %}</div></section>{% endif %}
+{% endblock %}

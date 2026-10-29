@@ -1,0 +1,7 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Оплата ЖКХ{% endblock %}
+{% block content %}
+  <a class="back-link" href="{% url 'resident_portal:home' %}">← На главную</a><h1>Оплата ЖКХ</h1>
+  <section class="payment-card tall"><div><p>Текущая задолженность</p><h2>{% if utility_account %}{{ utility_account.amount_due|floatformat:2 }} ₽{% else %}0 ₽{% endif %}</h2>{% if utility_account %}<small>Лицевой счёт {{ utility_account.account_number }}</small>{% endif %}</div></section>
+  <section class="surface"><h2>Онлайн-оплата готовится</h2><p class="muted">Начисления уже отображаются из учётной системы. Для настоящей оплаты потребуется выбрать банк или платёжного партнёра и настроить безопасный обмен данными.</p><button class="button primary wide" disabled>Перейти к оплате</button></section>
+{% endblock %}

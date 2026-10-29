@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - ТСЖ Жилой Комплекс</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-left-panel">
+            <div class="left-content">
+                <div class="logo-section">
+                    <div class="logo-wrapper">
+                        <div class="logo-badge">ЖК</div>
+                        <div class="logo-text">
+                            <h1>ЛОГОТИП</h1>
+                            <p>ЖИЛОГО КОМПЛЕКСА</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="illustration-section">
+                    <img src="assets/images/family-illustration.png" 
+                         alt="Счастливая семья в жилом комплексе" 
+                         class="family-illustration">
+                </div>
+            </div>
+        </div>
+
+        <div class="login-right-panel">
+            <div class="login-form-wrapper">
+                <div class="welcome-text">
+                    <h2>Добро пожаловать!</h2>
+                    <p class="subtitle">Войдите в свой аккаунт</p>
+                </div>
+
+                <form id="loginForm" class="login-form" novalidate>
+                    <div class="form-group">
+                        <label for="name" class="form-label">Имя</label>
+                        <input type="text" id="name" name="name" class="form-input" 
+                               placeholder="Введите ваше имя" required autocomplete="name">
+                        <span class="error-message" id="nameError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="form-label">Электронная почта</label>
+                        <input type="email" id="email" name="email" class="form-input" 
+                               placeholder="example@mail.ru" required autocomplete="email">
+                        <span class="error-message" id="emailError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">Пароль</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="password" name="password" class="form-input" 
+                                   placeholder="••••••••" required autocomplete="current-password">
+                            <button type="button" class="toggle-password" id="togglePassword">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="error-message" id="passwordError"></span>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary btn-login" id="loginBtn">
+                            <span class="btn-text">Войти в аккаунт</span>
+                        </button>
+                    </div>
+
+                    <div class="form-footer">
+                        <a href="#" class="help-link" id="helpLink">
+                            Проблемы со входом? <span>Помощь</span>
+                        </a>
+                    </div>
+                </form>
+
+                <div class="auth-error" id="authError" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span>Неверное имя пользователя или пароль</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="helpModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <h3>Помощь со входом</h3>
+            <p>Если у вас возникли проблемы со входом, свяжитесь с администрацией ТСЖ:</p>
+            <ul class="help-contacts">
+                <li> Телефон: +7 (XXX) XXX-XX-XX</li>
+                <li>✉️ Email: support@tsg-complex.ru</li>
+                <li>🏢 Офис: ул. Примерная, д. 1, офис 10</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>

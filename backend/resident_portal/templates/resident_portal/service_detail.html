@@ -1,0 +1,12 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}{{ offering.title }}{% endblock %}
+{% block content %}
+  <a class="back-link" href="{% url 'resident_portal:services' %}">← Маркет услуг</a>
+  <div class="page-heading"><p class="eyebrow">ЗАКАЗ УСЛУГИ</p><h1>{{ offering.title }}</h1><p>{{ offering.description }}</p></div>
+  <section class="order-summary">
+    <div><small>Стоимость</small><strong>{{ offering.price|floatformat:2 }} ₽</strong></div>
+    <div><small>Продолжительность</small><strong>{{ offering.duration_minutes }} мин.</strong></div>
+    <div><small>Исполнитель</small><strong>{{ offering.provider.name }}</strong></div>
+  </section>
+  <form method="post" class="surface form-stack">{% csrf_token %}{% for field in form %}<label>{{ field.label }}{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>{% endfor %}{% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors|striptags }}</div>{% endif %}<button class="button primary wide" type="submit">Заказать за {{ offering.price|floatformat:2 }} ₽</button><small class="muted">Цена зафиксируется в заказе. Оплата пока производится по правилам поставщика.</small></form>
+{% endblock %}

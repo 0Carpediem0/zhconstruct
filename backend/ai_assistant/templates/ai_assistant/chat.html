@@ -1,0 +1,128 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}AI-помощник{% endblock %}
+{% block content %}
+  <a class="back-link" href="{% url 'resident_portal:tickets' %}">← Обращения</a>
+  <div class="page-heading">
+    <p class="eyebrow">AI-ПОМОЩНИК</p>
+    <h1>Опишите проблему</h1>
+    <p>Напишите как в обычном чате. Система выделит суть, место и срочность перед отправкой в ТСЖ.</p>
+  </div>
+
+  <section class="ai-chat surface" data-analyze-url="{% url 'ai_assistant:analyze' %}" data-create-url="{% url 'ai_assistant:create-ticket' %}">
+    <div class="chat-log" data-chat-log aria-live="polite">
+      <div class="chat-message assistant">
+        <strong>Помощник</strong>
+        <p>Расскажите, что случилось и где это происходит.</p>
+      </div>
+    </div>
+
+    <form class="chat-composer" data-chat-form>
+      {% csrf_token %}
+      <textarea name="message" rows="4" placeholder="Например: в 3 подъезде прорвало трубу, вода течет на лестницу"></textarea>
+      <button class="button primary wide" type="submit">Разобрать обращение</button>
+    </form>
+
+    <div class="ai-result" data-ai-result hidden>
+      <div>
+        <small>Тема</small>
+        <strong data-ai-title></strong>
+      </div>
+      <div>
+        <small>Категория</small>
+        <strong data-ai-category></strong>
+      </div>
+      <div>
+        <small>Место</small>
+        <strong data-ai-location></strong>
+      </div>
+      <div>
+        <small>Срочность</small>
+        <strong data-ai-priority></strong>
+      </div>
+      <p data-ai-summary></p>
+      <button class="button primary wide" type="button" data-create-ticket>Отправить заявку в ТСЖ</button>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.querySelector('[data-analyze-url]');
+      const form = root.querySelector('[data-chat-form]');
+      const textarea = form.querySelector('textarea');
+      const result = root.querySelector('[data-ai-result]');
+      const createButton = root.querySelector('[data-create-ticket]');
+      const log = root.querySelector('[data-chat-log]');
+      const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+      let lastMessage = '';
+      let lastAnalysis = null;
+
+      const addMessage = (role, text) => {
+        const item = document.createElement('div');
+        item.className = `chat-message ${role}`;
+        item.innerHTML = `<strong>${role === 'user' ? 'Вы' : 'Помощник'}</strong><p></p>`;
+        item.querySelector('p').textContent = text;
+        log.appendChild(item);
+        log.scrollTop = log.scrollHeight;
+      };
+
+      const postJson = async (url, payload) => {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка запроса');
+        return data;
+      };
+
+      const setLoading = (isLoading) => {
+        form.querySelector('button').disabled = isLoading;
+        createButton.disabled = isLoading;
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = textarea.value.trim();
+        if (!message) return;
+        lastMessage = message;
+        lastAnalysis = null;
+        result.hidden = true;
+        addMessage('user', message);
+        setLoading(true);
+        try {
+          const data = await postJson(root.dataset.analyzeUrl, {message});
+          lastAnalysis = data.analysis;
+          addMessage('assistant', lastAnalysis.resident_reply);
+          root.querySelector('[data-ai-title]').textContent = lastAnalysis.title;
+          root.querySelector('[data-ai-category]').textContent = lastAnalysis.category_name;
+          root.querySelector('[data-ai-location]').textContent = lastAnalysis.location;
+          root.querySelector('[data-ai-priority]').textContent = lastAnalysis.priority_label;
+          root.querySelector('[data-ai-summary]').textContent = lastAnalysis.summary;
+          result.hidden = false;
+        } catch (error) {
+          addMessage('assistant', error.message);
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      createButton.addEventListener('click', async () => {
+        if (!lastMessage || !lastAnalysis) return;
+        setLoading(true);
+        try {
+          const data = await postJson(root.dataset.createUrl, {
+            message: lastMessage,
+            analysis: lastAnalysis,
+          });
+          window.location.href = data.ticket_url;
+        } catch (error) {
+          addMessage('assistant', error.message);
+        } finally {
+          setLoading(false);
+        }
+      });
+    })();
+  </script>
+{% endblock %}
+

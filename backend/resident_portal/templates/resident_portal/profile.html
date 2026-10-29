@@ -1,0 +1,9 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+  <section class="profile-head"><div class="profile-avatar">{{ applicant.full_name|slice:':1' }}</div><div><h1>{{ applicant.full_name }}</h1><p>{{ complex.name }} · кв. {{ applicant.apartment|default:'—' }}</p></div></section>
+  <div class="stats"><a href="{% url 'resident_portal:tickets' %}"><strong>{{ orders_count }}</strong><small>заказов</small></a><a href="{% url 'resident_portal:tickets' %}"><strong>{{ appeals_count }}</strong><small>обращений</small></a></div>
+  <section class="surface address-card"><small>Мой дом</small><h2>{{ complex.name }}</h2><p>{{ complex.address }}</p><p>Квартира {{ applicant.apartment|default:'не указана' }}</p></section>
+  <form method="post" class="surface form-stack"><h2>Настройки профиля</h2>{% csrf_token %}{% for field in form %}<label>{{ field.label }}{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>{% endfor %}<button class="button primary wide" type="submit">Сохранить</button></form>
+  <form method="post" action="{% url 'resident_portal:logout' %}">{% csrf_token %}<button class="button danger-text wide" type="submit">Выйти из аккаунта</button></form>
+{% endblock %}

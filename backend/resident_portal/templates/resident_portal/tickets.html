@@ -1,0 +1,6 @@
+{% extends 'resident_portal/base.html' %}
+{% block title %}Обращения{% endblock %}
+{% block content %}
+  <div class="page-heading heading-action"><div><p class="eyebrow">СВЯЗЬ С ТСЖ</p><h1>Обращения</h1><p>Следите за выполнением и сообщайте о новых проблемах.</p></div><a class="button primary" href="{% url 'resident_portal:ticket-create' %}">+ Создать</a></div>
+  <div class="list-card">{% for ticket in tickets %}<a class="list-row roomy" href="{% url 'resident_portal:ticket-detail' ticket.pk %}"><span class="status-dot status-{{ ticket.status }}"></span><span><small>№{{ ticket.pk }} · {{ ticket.get_kind_display }}</small><strong>{{ ticket.title }}</strong><small>{{ ticket.category.name }} · {{ ticket.get_resident_status_display }}</small></span><b>›</b></a>{% empty %}<div class="empty">У вас пока нет обращений.</div>{% endfor %}</div>
+{% endblock %}
